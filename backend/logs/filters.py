@@ -6,6 +6,7 @@ from .models import EmailLog
 
 class EmailLogFilter(django_filters.FilterSet):
     status = django_filters.ChoiceFilter(choices=EmailLog.STATUS_CHOICES)
+    environment = django_filters.ChoiceFilter(choices=EmailLog.ENVIRONMENT_CHOICES)
     recipient = django_filters.CharFilter(lookup_expr='icontains')
     event = django_filters.NumberFilter(field_name='event__id')
     event_slug = django_filters.CharFilter(field_name='event__slug')

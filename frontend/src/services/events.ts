@@ -10,4 +10,6 @@ export const eventsApi = {
   delete: (id: number) => api.delete(`/events/${id}/`),
   testEvent: (id: number, data: { recipient: string; data: Record<string, string> }) =>
     api.post<{ detail: string; task_id: string }>(`/events/${id}/test/`, data),
+  promote: (id: number) =>
+    api.post<Event & { warnings?: string[] }>(`/events/${id}/promote/`),
 };

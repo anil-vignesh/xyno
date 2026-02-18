@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Code, Pencil, Play, Plus, Trash2, Zap } from "lucide-react";
+import { ArrowUpCircle, Code, Pencil, Play, Plus, Trash2, Zap } from "lucide-react";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { eventsApi } from "@/services/events";
 import { integrationsApi } from "@/services/integrations";
 import { templatesApi } from "@/services/templates";
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/table";
 
 export default function EventsPage() {
+  const { environment } = useEnvironment();
   const [events, setEvents] = useState<Event[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [integrations, setIntegrations] = useState<SESIntegration[]>([]);
@@ -77,7 +79,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [environment]);
 
   const openCreate = () => {
     setEditingEvent(null);
@@ -132,6 +134,20 @@ export default function EventsPage() {
       fetchData();
     } catch {
       toast.error("Failed to delete event");
+    }
+  };
+
+  const handlePromote = async (id: number) => {
+    if (!confirm("Promote this event to Production?")) return;
+    try {
+      const { data } = await eventsApi.promote(id);
+      if (data.warnings?.length) {
+        toast.warning(`Promoted with warnings: ${data.warnings.join(" ")}`);
+      } else {
+        toast.success("Event promoted to Production");
+      }
+    } catch {
+      toast.error("Failed to promote event");
     }
   };
 
@@ -239,6 +255,16 @@ export default function EventsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {environment === "sandbox" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePromote(event.id)}
+                            title="Promote to Production"
+                          >
+                            <ArrowUpCircle className="h-3 w-3" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -322,26 +348,29 @@ export default function EventsPage() {
 
       {/* Trigger Code Dialog */}
       <Dialog open={codeDialogOpen} onOpenChange={setCodeDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl flex flex-col max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Trigger Code</DialogTitle>
             <DialogDescription>Use this curl command to trigger the "{selectedEvent?.name}" event</DialogDescription>
           </DialogHeader>
-          <div className="relative">
-            <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-sm">{triggerCode}</pre>
-            <Button
-              size="sm"
-              variant="outline"
-              className="absolute right-2 top-2"
-              onClick={() => {
-                navigator.clipboard.writeText(triggerCode);
-                toast.success("Copied to clipboard");
-              }}
-            >
-              Copy
-            </Button>
+          <div className="rounded-lg bg-muted overflow-hidden flex flex-col min-h-0">
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+              <span className="text-xs text-muted-foreground font-medium">curl</span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-xs"
+                onClick={() => {
+                  navigator.clipboard.writeText(triggerCode);
+                  toast.success("Copied to clipboard");
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <pre className="overflow-auto px-4 pb-4 text-sm">{triggerCode}</pre>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setCodeDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>

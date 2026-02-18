@@ -3,6 +3,11 @@ from django.db import models
 
 
 class EmailLog(models.Model):
+    ENVIRONMENT_CHOICES = [
+        ('sandbox', 'Sandbox'),
+        ('production', 'Production'),
+    ]
+
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('sent', 'Sent'),
@@ -34,6 +39,12 @@ class EmailLog(models.Model):
         on_delete=models.CASCADE,
         related_name='email_logs',
     )
+    environment = models.CharField(
+        max_length=20,
+        choices=ENVIRONMENT_CHOICES,
+        default='sandbox',
+        db_index=True,
+    )
     recipient = models.EmailField(db_index=True)
     subject = models.CharField(max_length=500)
     status = models.CharField(
@@ -52,6 +63,7 @@ class EmailLog(models.Model):
         indexes = [
             models.Index(fields=['user', '-sent_at']),
             models.Index(fields=['user', 'status']),
+            models.Index(fields=['user', 'environment', '-sent_at']),
         ]
 
     def __str__(self):

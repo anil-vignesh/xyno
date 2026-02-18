@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { EnvironmentProvider } from "@/contexts/EnvironmentContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import LoginPage from "@/pages/LoginPage";
@@ -18,6 +19,7 @@ import BrandComponentsPage from "@/pages/BrandComponentsPage";
 function App() {
   return (
     <AuthProvider>
+      <EnvironmentProvider>
       <TooltipProvider>
         <BrowserRouter>
           <Routes>
@@ -41,6 +43,7 @@ function App() {
         </BrowserRouter>
         <Toaster />
       </TooltipProvider>
+      </EnvironmentProvider>
     </AuthProvider>
   );
 }

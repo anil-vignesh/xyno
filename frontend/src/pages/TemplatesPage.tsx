@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Mail, Pencil, Plus, Settings, Trash2, Upload } from "lucide-react";
+import { ArrowUpCircle, Mail, Pencil, Plus, Settings, Trash2, Upload } from "lucide-react";
 import { templatesApi } from "@/services/templates";
 import type { EmailTemplate, Placeholder } from "@/types";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,7 @@ import {
 
 export default function TemplatesPage() {
   const navigate = useNavigate();
+  const { environment } = useEnvironment();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [environment]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this template?")) return;
@@ -96,6 +98,16 @@ export default function TemplatesPage() {
     setPlaceholderTemplate(template);
     setEditPlaceholders(template.placeholders.map((p) => ({ ...p })));
     setPlaceholderOpen(true);
+  };
+
+  const handlePromote = async (id: number) => {
+    if (!confirm("Promote this template to Production? An existing production version will be overwritten.")) return;
+    try {
+      await templatesApi.promote(id);
+      toast.success("Template promoted to Production");
+    } catch {
+      toast.error("Failed to promote template");
+    }
   };
 
   const handleSavePlaceholders = async () => {
@@ -170,6 +182,16 @@ export default function TemplatesPage() {
                     <TableCell>{new Date(template.updated_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {environment === "sandbox" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePromote(template.id)}
+                            title="Promote to Production"
+                          >
+                            <ArrowUpCircle className="h-3 w-3" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"

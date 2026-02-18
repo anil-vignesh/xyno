@@ -47,10 +47,15 @@ class APIKeyViewSet(viewsets.ModelViewSet):
         raw_key = APIKey.generate_key()
         hashed_key = APIKey.hash_key(raw_key)
 
+        environment = request.data.get('environment', 'sandbox')
+        if environment not in ('sandbox', 'production'):
+            environment = 'sandbox'
+
         api_key = APIKey.objects.create(
             key=hashed_key,
             prefix=raw_key[:8],
             name=serializer.validated_data['name'],
+            environment=environment,
             user=request.user,
         )
 

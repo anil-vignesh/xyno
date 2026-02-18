@@ -14,7 +14,7 @@ class EmailTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailTemplate
         fields = [
-            'id', 'name', 'subject', 'html_content', 'design_json',
+            'id', 'name', 'environment', 'subject', 'html_content', 'design_json',
             'placeholders', 'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'placeholders', 'created_at', 'updated_at']
@@ -26,7 +26,7 @@ class EmailTemplateListSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailTemplate
         fields = [
-            'id', 'name', 'subject', 'placeholders',
+            'id', 'name', 'environment', 'subject', 'placeholders',
             'is_active', 'created_at', 'updated_at',
         ]
 

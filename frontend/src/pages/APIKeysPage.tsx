@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Key, Plus, Trash2 } from "lucide-react";
 import { apiKeysApi } from "@/services/apiKeys";
-import type { APIKey } from "@/types";
+import type { APIKey, Environment } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,6 +38,7 @@ export default function APIKeysPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [revealOpen, setRevealOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyEnv, setNewKeyEnv] = useState<Environment>("sandbox");
   const [newRawKey, setNewRawKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,10 +61,11 @@ export default function APIKeysPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { data } = await apiKeysApi.create(newKeyName);
+      const { data } = await apiKeysApi.create(newKeyName, newKeyEnv);
       setNewRawKey(data.raw_key);
       setCreateOpen(false);
       setNewKeyName("");
+      setNewKeyEnv("sandbox");
       setRevealOpen(true);
       fetchKeys();
     } catch {
@@ -119,6 +128,7 @@ export default function APIKeysPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Key Prefix</TableHead>
+                  <TableHead>Environment</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Used</TableHead>
                   <TableHead>Created</TableHead>
@@ -131,6 +141,11 @@ export default function APIKeysPage() {
                     <TableCell className="font-medium">{key.name}</TableCell>
                     <TableCell>
                       <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{key.prefix}...</code>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={key.environment === "production" ? "default" : "secondary"}>
+                        {key.environment}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -174,6 +189,17 @@ export default function APIKeysPage() {
                 placeholder="e.g. Production Backend"
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Environment</Label>
+              <Select value={newKeyEnv} onValueChange={(v) => setNewKeyEnv(v as Environment)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sandbox">Sandbox</SelectItem>
+                  <SelectItem value="production">Production</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">This key will only trigger events in the selected environment.</p>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>

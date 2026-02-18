@@ -12,6 +12,8 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const env = localStorage.getItem("xyno_environment") || "sandbox";
+  config.headers["X-Environment"] = env;
   return config;
 });
 

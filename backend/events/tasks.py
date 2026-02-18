@@ -33,6 +33,7 @@ def send_event_email(self, event_id: int, recipient: str, context_data: dict):
         template=template,
         integration=integration,
         user=event.user,
+        environment=event.environment,
         recipient=recipient,
         subject=rendered_subject,
         status='pending',

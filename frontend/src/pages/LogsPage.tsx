@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { FileText, Search } from "lucide-react";
 import { logsApi } from "@/services/logs";
 import type { EmailLog } from "@/types";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +39,7 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 };
 
 export default function LogsPage() {
+  const { environment } = useEnvironment();
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -64,7 +66,7 @@ export default function LogsPage() {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, filters]);
+  }, [page, filters, environment]);
 
   const updateFilter = (key: string, value: string) => {
     setPage(1);

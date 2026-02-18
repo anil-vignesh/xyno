@@ -19,11 +19,22 @@ class SESIntegration(models.Model):
         ('ap-northeast-1', 'Asia Pacific (Tokyo)'),
     ]
 
+    ENVIRONMENT_CHOICES = [
+        ('sandbox', 'Sandbox'),
+        ('production', 'Production'),
+    ]
+
     name = models.CharField(max_length=255)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='ses_integrations',
+    )
+    environment = models.CharField(
+        max_length=20,
+        choices=ENVIRONMENT_CHOICES,
+        default='sandbox',
+        db_index=True,
     )
     aws_access_key_encrypted = models.TextField()
     aws_secret_key_encrypted = models.TextField()
@@ -36,7 +47,7 @@ class SESIntegration(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['user', 'name']
+        unique_together = ['user', 'name', 'environment']
 
     def __str__(self):
         return f"{self.name} ({self.sender_email})"

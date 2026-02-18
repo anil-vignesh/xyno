@@ -5,6 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from xyno.utils import get_environment_from_request
+
 from .models import SESIntegration
 from .serializers import SESIntegrationCreateSerializer, SESIntegrationListSerializer
 
@@ -13,7 +15,8 @@ class SESIntegrationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return SESIntegration.objects.filter(user=self.request.user)
+        env = get_environment_from_request(self.request)
+        return SESIntegration.objects.filter(user=self.request.user, environment=env)
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -21,7 +24,8 @@ class SESIntegrationViewSet(viewsets.ModelViewSet):
         return SESIntegrationListSerializer
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        env = get_environment_from_request(self.request)
+        serializer.save(user=self.request.user, environment=env)
 
     @action(detail=True, methods=['post'])
     def verify_sender(self, request, pk=None):

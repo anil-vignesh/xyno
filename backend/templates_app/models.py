@@ -5,6 +5,11 @@ from django.db import models
 
 
 class EmailTemplate(models.Model):
+    ENVIRONMENT_CHOICES = [
+        ('sandbox', 'Sandbox'),
+        ('production', 'Production'),
+    ]
+
     name = models.CharField(max_length=255)
     subject = models.CharField(max_length=500)
     html_content = models.TextField(blank=True)
@@ -15,13 +20,19 @@ class EmailTemplate(models.Model):
         on_delete=models.CASCADE,
         related_name='email_templates',
     )
+    environment = models.CharField(
+        max_length=20,
+        choices=ENVIRONMENT_CHOICES,
+        default='sandbox',
+        db_index=True,
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-updated_at']
-        unique_together = ['user', 'name']
+        unique_together = ['user', 'name', 'environment']
 
     def __str__(self):
         return self.name

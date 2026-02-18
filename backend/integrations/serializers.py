@@ -12,7 +12,7 @@ class SESIntegrationCreateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'aws_access_key', 'aws_secret_key',
             'region', 'sender_email', 'is_verified', 'is_active',
-            'created_at', 'updated_at',
+            'created_at', 'updated_at', 'environment',
         ]
         read_only_fields = ['id', 'is_verified', 'created_at', 'updated_at']
 
@@ -39,6 +39,6 @@ class SESIntegrationListSerializer(serializers.ModelSerializer):
     class Meta:
         model = SESIntegration
         fields = [
-            'id', 'name', 'region', 'sender_email',
+            'id', 'name', 'environment', 'region', 'sender_email',
             'is_verified', 'is_active', 'created_at', 'updated_at',
         ]

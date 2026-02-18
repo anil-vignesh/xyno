@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Cloud, Plus, RefreshCw, Trash2, Wifi } from "lucide-react";
 import { integrationsApi } from "@/services/integrations";
 import type { SESIntegration } from "@/types";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ const AWS_REGIONS = [
 ];
 
 export default function IntegrationsPage() {
+  const { environment } = useEnvironment();
   const [integrations, setIntegrations] = useState<SESIntegration[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,7 +74,7 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     fetchIntegrations();
-  }, []);
+  }, [environment]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

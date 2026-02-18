@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Activity, Cloud, Mail, Send, Zap } from "lucide-react";
 import { logsApi } from "@/services/logs";
 import type { DashboardStats } from "@/types";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,16 +37,18 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { environment } = useEnvironment();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     logsApi
       .dashboardStats()
       .then(({ data }) => setStats(data))
       .catch(() => toast.error("Failed to load dashboard"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [environment]);
 
   if (loading) {
     return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading dashboard...</div>;

@@ -12,7 +12,7 @@ class EmailLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailLog
         fields = [
-            'id', 'event', 'event_name', 'event_slug',
+            'id', 'environment', 'event', 'event_name', 'event_slug',
             'template', 'template_name',
             'integration', 'integration_name',
             'recipient', 'subject', 'status',

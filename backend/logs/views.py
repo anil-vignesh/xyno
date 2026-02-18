@@ -11,6 +11,8 @@ from events.models import Event
 from integrations.models import SESIntegration
 from templates_app.models import EmailTemplate
 
+from xyno.utils import get_environment_from_request
+
 from .filters import EmailLogFilter
 from .models import EmailLog
 from .serializers import EmailLogSerializer
@@ -22,8 +24,9 @@ class EmailLogViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = EmailLogFilter
 
     def get_queryset(self):
+        env = get_environment_from_request(self.request)
         return EmailLog.objects.filter(
-            user=self.request.user
+            user=self.request.user, environment=env
         ).select_related('event', 'template', 'integration')
 
 
@@ -32,11 +35,12 @@ class DashboardStatsView(APIView):
 
     def get(self, request):
         user = request.user
+        env = get_environment_from_request(request)
         today = timezone.now().date()
         last_7_days = today - timedelta(days=7)
         last_30_days = today - timedelta(days=30)
 
-        logs = EmailLog.objects.filter(user=user)
+        logs = EmailLog.objects.filter(user=user, environment=env)
 
         daily_breakdown = list(
             logs.filter(sent_at__date__gte=last_7_days)
@@ -61,9 +65,9 @@ class DashboardStatsView(APIView):
             'sent_today': logs.filter(status='sent', sent_at__date=today).count(),
             'sent_last_7_days': logs.filter(status='sent', sent_at__date__gte=last_7_days).count(),
             'sent_last_30_days': logs.filter(status='sent', sent_at__date__gte=last_30_days).count(),
-            'active_integrations': SESIntegration.objects.filter(user=user, is_active=True).count(),
-            'active_events': Event.objects.filter(user=user, is_active=True).count(),
-            'total_templates': EmailTemplate.objects.filter(user=user).count(),
+            'active_integrations': SESIntegration.objects.filter(user=user, is_active=True, environment=env).count(),
+            'active_events': Event.objects.filter(user=user, is_active=True, environment=env).count(),
+            'total_templates': EmailTemplate.objects.filter(user=user, environment=env).count(),
             'daily_breakdown': daily_breakdown,
             'recent_logs': recent_logs,
         }

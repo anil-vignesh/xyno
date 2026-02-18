@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +39,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { environment, setEnvironment } = useEnvironment();
 
   return (
     <Sidebar>
@@ -49,6 +51,28 @@ export function AppSidebar() {
           Xyno
         </h1>
         <p className="text-xs text-muted-foreground">Email Management Platform</p>
+        <div className="mt-3 flex rounded-md border p-0.5 bg-muted/50">
+          <button
+            className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+              environment === "sandbox"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setEnvironment("sandbox")}
+          >
+            Sandbox
+          </button>
+          <button
+            className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+              environment === "production"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setEnvironment("production")}
+          >
+            Production
+          </button>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

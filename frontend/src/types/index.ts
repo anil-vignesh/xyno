@@ -1,3 +1,5 @@
+export type Environment = "sandbox" | "production";
+
 export interface User {
   id: number;
   username: string;
@@ -11,6 +13,7 @@ export interface APIKey {
   id: number;
   name: string;
   prefix: string;
+  environment: Environment;
   is_active: boolean;
   last_used_at: string | null;
   created_at: string;
@@ -20,6 +23,7 @@ export interface APIKey {
 export interface SESIntegration {
   id: number;
   name: string;
+  environment: Environment;
   region: string;
   sender_email: string;
   is_verified: boolean;
@@ -44,6 +48,7 @@ export interface Placeholder {
 export interface EmailTemplate {
   id: number;
   name: string;
+  environment: Environment;
   subject: string;
   html_content: string;
   design_json: Record<string, unknown> | null;
@@ -58,6 +63,7 @@ export interface Event {
   name: string;
   slug: string;
   description: string;
+  environment: Environment;
   template: number | null;
   template_name: string | null;
   integration: number | null;
@@ -77,6 +83,7 @@ export interface CreateEvent {
 
 export interface EmailLog {
   id: number;
+  environment: Environment;
   event: number | null;
   event_name: string | null;
   event_slug: string | null;

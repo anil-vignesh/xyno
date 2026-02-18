@@ -19,4 +19,6 @@ export const templatesApi = {
     api.post<EmailTemplate>(`/templates/${id}/update-placeholders/`, {
       placeholders,
     }),
+  promote: (id: number | string) =>
+    api.post<EmailTemplate>(`/templates/${id}/promote/`),
 };

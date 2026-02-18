@@ -38,11 +38,11 @@ class UserSerializer(serializers.ModelSerializer):
 class APIKeyCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
-        fields = ['id', 'name', 'prefix', 'is_active', 'last_used_at', 'created_at']
+        fields = ['id', 'name', 'prefix', 'environment', 'is_active', 'last_used_at', 'created_at']
         read_only_fields = ['id', 'prefix', 'is_active', 'last_used_at', 'created_at']
 
 
 class APIKeyListSerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
-        fields = ['id', 'name', 'prefix', 'is_active', 'last_used_at', 'created_at']
+        fields = ['id', 'name', 'prefix', 'environment', 'is_active', 'last_used_at', 'created_at']
