@@ -20,9 +20,9 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         env = get_environment_from_request(self.request)
-        return Event.objects.filter(user=self.request.user, environment=env).select_related(
-            'template', 'integration'
-        )
+        return Event.objects.filter(
+            user__organization=self.request.user.organization, environment=env
+        ).select_related('template', 'integration')
 
     def perform_create(self, serializer):
         env = get_environment_from_request(self.request)
@@ -38,10 +38,11 @@ class EventViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        org = request.user.organization
         prod_template = None
         if event.template:
             prod_template = EmailTemplate.objects.filter(
-                user=request.user,
+                user__organization=org,
                 name=event.template.name,
                 environment='production',
             ).first()
@@ -49,7 +50,7 @@ class EventViewSet(viewsets.ModelViewSet):
         prod_integration = None
         if event.integration:
             prod_integration = SESIntegration.objects.filter(
-                user=request.user,
+                user__organization=org,
                 name=event.integration.name,
                 environment='production',
             ).first()
@@ -61,7 +62,7 @@ class EventViewSet(viewsets.ModelViewSet):
             warnings.append(f'Integration "{event.integration.name}" has not been configured for production yet.')
 
         existing = Event.objects.filter(
-            user=request.user,
+            user__organization=org,
             slug=event.slug,
             environment='production',
         ).first()
@@ -145,7 +146,7 @@ class TriggerEventView(APIView):
             event = Event.objects.select_related(
                 'template', 'integration'
             ).get(
-                user=request.user,
+                user__organization=request.user.organization,
                 slug=event_slug,
                 environment=environment,
                 is_active=True,

@@ -16,7 +16,9 @@ class SESIntegrationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         env = get_environment_from_request(self.request)
-        return SESIntegration.objects.filter(user=self.request.user, environment=env)
+        return SESIntegration.objects.filter(
+            user__organization=self.request.user.organization, environment=env
+        )
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

@@ -7,20 +7,24 @@ from rest_framework.test import APIClient
 
 @pytest.mark.django_db
 class TestIntegrationsEnvironmentScoping:
-    def test_sandbox_client_sees_only_sandbox(self, client, sandbox_integration, prod_integration):
+    def test_sandbox_client_sees_only_sandbox(self, client, sandbox_integration):
         resp = client.get("/api/integrations/")
         assert resp.status_code == 200
-        names = [i["name"] for i in resp.data["results"]]
-        assert sandbox_integration.name in names
-        # prod has same name but different env — still shows up once (sandbox only)
         for item in resp.data["results"]:
             assert item["environment"] == "sandbox"
 
-    def test_prod_client_sees_only_prod(self, prod_client, sandbox_integration, prod_integration):
-        resp = prod_client.get("/api/integrations/")
+    def test_prod_admin_client_sees_only_prod(self, prod_admin_client, prod_integration):
+        resp = prod_admin_client.get("/api/integrations/")
         assert resp.status_code == 200
         for item in resp.data["results"]:
             assert item["environment"] == "production"
+
+    def test_developer_locked_to_sandbox(self, prod_client, sandbox_integration):
+        """Developer sending X-Environment: production still sees sandbox."""
+        resp = prod_client.get("/api/integrations/")
+        assert resp.status_code == 200
+        for item in resp.data["results"]:
+            assert item["environment"] == "sandbox"
 
     def test_create_sets_environment_from_header(self, client):
         resp = client.post("/api/integrations/", {
@@ -33,8 +37,8 @@ class TestIntegrationsEnvironmentScoping:
         assert resp.status_code == 201
         assert resp.data["environment"] == "sandbox"
 
-    def test_create_prod_sets_environment_from_header(self, prod_client):
-        resp = prod_client.post("/api/integrations/", {
+    def test_create_prod_sets_environment_from_header(self, prod_admin_client):
+        resp = prod_admin_client.post("/api/integrations/", {
             "name": "Prod SES",
             "aws_access_key": "AKIAFAKE",
             "aws_secret_key": "fakesecret",

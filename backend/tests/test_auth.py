@@ -72,13 +72,22 @@ class TestAPIKeys:
         assert "raw_key" in resp.data
         assert len(resp.data["raw_key"]) > 20
 
-    def test_create_api_key_production(self, client):
-        resp = client.post("/api/auth/api-keys/", {
+    def test_create_api_key_production_as_admin(self, admin_client):
+        """Admin can create production API keys."""
+        resp = admin_client.post("/api/auth/api-keys/", {
             "name": "My Prod Key",
             "environment": "production",
         }, format="json")
         assert resp.status_code == 201
         assert resp.data["environment"] == "production"
+
+    def test_developer_cannot_create_production_api_key(self, client):
+        """Developer role is blocked from creating production keys."""
+        resp = client.post("/api/auth/api-keys/", {
+            "name": "My Prod Key",
+            "environment": "production",
+        }, format="json")
+        assert resp.status_code == 403
 
     def test_create_api_key_invalid_env_rejected(self, client):
         resp = client.post("/api/auth/api-keys/", {
@@ -97,8 +106,11 @@ class TestAPIKeys:
         resp2 = client.get(f"/api/auth/api-keys/{key_id}/")
         assert "raw_key" not in resp2.data
 
-    def test_list_shows_all_environments(self, client, sandbox_api_key, prod_api_key):
-        resp = client.get("/api/auth/api-keys/")
+    def test_list_shows_all_environments(self, admin_client, admin_user):
+        """Admin can create both env keys and see them all."""
+        admin_client.post("/api/auth/api-keys/", {"name": "SB Key", "environment": "sandbox"}, format="json")
+        admin_client.post("/api/auth/api-keys/", {"name": "Prod Key", "environment": "production"}, format="json")
+        resp = admin_client.get("/api/auth/api-keys/")
         assert resp.status_code == 200
         envs = {k["environment"] for k in resp.data["results"]}
         assert "sandbox" in envs

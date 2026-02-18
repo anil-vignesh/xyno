@@ -1,12 +1,43 @@
 export type Environment = "sandbox" | "production";
+export type UserRole = "admin" | "developer";
 
 export interface User {
   id: number;
   username: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
   company_name: string;
+  role: UserRole;
   created_at: string;
   updated_at: string;
+}
+
+export interface ManagedUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  role: UserRole;
+  is_active: boolean;
+  status: "active" | "invited";
+  created_at: string;
+}
+
+export interface InviteUserPayload {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  role: UserRole;
+}
+
+export interface InviteUserResponse extends ManagedUser {
+  invite_url: string;
+  warning?: string;
 }
 
 export interface APIKey {

@@ -20,7 +20,9 @@ class EmailTemplateViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         env = get_environment_from_request(self.request)
-        return EmailTemplate.objects.filter(user=self.request.user, environment=env)
+        return EmailTemplate.objects.filter(
+            user__organization=self.request.user.organization, environment=env
+        )
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -80,7 +82,7 @@ class EmailTemplateViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         existing = EmailTemplate.objects.filter(
-            user=request.user,
+            user__organization=request.user.organization,
             name=template.name,
             environment='production',
         ).first()

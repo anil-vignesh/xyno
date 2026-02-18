@@ -26,7 +26,7 @@ class EmailLogViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         env = get_environment_from_request(self.request)
         return EmailLog.objects.filter(
-            user=self.request.user, environment=env
+            user__organization=self.request.user.organization, environment=env
         ).select_related('event', 'template', 'integration')
 
 
@@ -40,7 +40,8 @@ class DashboardStatsView(APIView):
         last_7_days = today - timedelta(days=7)
         last_30_days = today - timedelta(days=30)
 
-        logs = EmailLog.objects.filter(user=user, environment=env)
+        org = user.organization
+        logs = EmailLog.objects.filter(user__organization=org, environment=env)
 
         daily_breakdown = list(
             logs.filter(sent_at__date__gte=last_7_days)
@@ -65,9 +66,9 @@ class DashboardStatsView(APIView):
             'sent_today': logs.filter(status='sent', sent_at__date=today).count(),
             'sent_last_7_days': logs.filter(status='sent', sent_at__date__gte=last_7_days).count(),
             'sent_last_30_days': logs.filter(status='sent', sent_at__date__gte=last_30_days).count(),
-            'active_integrations': SESIntegration.objects.filter(user=user, is_active=True, environment=env).count(),
-            'active_events': Event.objects.filter(user=user, is_active=True, environment=env).count(),
-            'total_templates': EmailTemplate.objects.filter(user=user, environment=env).count(),
+            'active_integrations': SESIntegration.objects.filter(user__organization=org, is_active=True, environment=env).count(),
+            'active_events': Event.objects.filter(user__organization=org, is_active=True, environment=env).count(),
+            'total_templates': EmailTemplate.objects.filter(user__organization=org, environment=env).count(),
             'daily_breakdown': daily_breakdown,
             'recent_logs': recent_logs,
         }

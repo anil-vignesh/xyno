@@ -13,17 +13,24 @@ from integrations.models import SESIntegration
 
 @pytest.mark.django_db
 class TestEventsEnvironmentScoping:
-    def test_sandbox_sees_only_sandbox(self, client, sandbox_event, prod_event):
+    def test_sandbox_sees_only_sandbox(self, client, sandbox_event):
         resp = client.get("/api/events/")
         assert resp.status_code == 200
         for item in resp.data["results"]:
             assert item["environment"] == "sandbox"
 
-    def test_prod_sees_only_prod(self, prod_client, sandbox_event, prod_event):
-        resp = prod_client.get("/api/events/")
+    def test_prod_admin_sees_only_prod(self, prod_admin_client, prod_event):
+        resp = prod_admin_client.get("/api/events/")
         assert resp.status_code == 200
         for item in resp.data["results"]:
             assert item["environment"] == "production"
+
+    def test_developer_locked_to_sandbox(self, prod_client, sandbox_event):
+        """Developer sending X-Environment: production still sees sandbox."""
+        resp = prod_client.get("/api/events/")
+        assert resp.status_code == 200
+        for item in resp.data["results"]:
+            assert item["environment"] == "sandbox"
 
     def test_create_event_in_sandbox(self, client, sandbox_template, sandbox_integration):
         resp = client.post("/api/events/", {
@@ -50,11 +57,40 @@ class TestEventsEnvironmentScoping:
 
 @pytest.mark.django_db
 class TestEventPromote:
-    def test_promote_creates_production_event(self, client, sandbox_event, prod_template, prod_integration):
-        resp = client.post(f"/api/events/{sandbox_event.id}/promote/")
+    def test_promote_creates_production_event(self, admin_client, admin_user, prod_template, prod_integration):
+        """Admin can promote a sandbox event to production."""
+        # Create sandbox template + integration owned by admin_user
+        sb_int = SESIntegration(
+            name="SB Integration",
+            user=admin_user,
+            environment="sandbox",
+            region="us-east-1",
+            sender_email="sender@example.com",
+            is_verified=True,
+            is_active=True,
+        )
+        sb_int.set_aws_credentials("AKIATEST", "secrettest")
+        sb_int.save()
+        sb_tpl = EmailTemplate.objects.create(
+            name="Welcome Email",
+            subject="Hello",
+            html_content="<p>Hi</p>",
+            user=admin_user,
+            environment="sandbox",
+        )
+        event = Event.objects.create(
+            name="Payment Received",
+            slug="payment_received_promote",
+            user=admin_user,
+            template=sb_tpl,
+            integration=sb_int,
+            environment="sandbox",
+            is_active=True,
+        )
+        resp = admin_client.post(f"/api/events/{event.id}/promote/")
         assert resp.status_code in (200, 201)
         assert resp.data["environment"] == "production"
-        assert resp.data["slug"] == sandbox_event.slug
+        assert resp.data["slug"] == event.slug
 
     def test_promote_warns_if_template_not_in_production(self, client, user, sandbox_integration):
         # Template only in sandbox, no production counterpart
@@ -103,15 +139,46 @@ class TestEventPromote:
         assert resp.status_code in (200, 201)
         assert any("Orphan Integration" in w for w in resp.data["warnings"])
 
-    def test_cannot_promote_production_event(self, prod_client, prod_event):
-        resp = prod_client.post(f"/api/events/{prod_event.id}/promote/")
+    def test_cannot_promote_production_event(self, prod_admin_client, prod_event):
+        resp = prod_admin_client.post(f"/api/events/{prod_event.id}/promote/")
         assert resp.status_code == 400
 
-    def test_promote_updates_existing(self, client, sandbox_event, prod_event):
-        sandbox_event.name = "Updated Name"
-        sandbox_event.save()
-        resp = client.post(f"/api/events/{sandbox_event.id}/promote/")
-        assert resp.status_code == 200  # 200 = updated existing
+    def test_promote_updates_existing(self, admin_client, admin_user, prod_template, prod_integration):
+        """Promoting an event that already exists in production updates it (200)."""
+        sb_int = SESIntegration(
+            name="SB Integration",
+            user=admin_user,
+            environment="sandbox",
+            region="us-east-1",
+            sender_email="sender@example.com",
+            is_verified=True,
+            is_active=True,
+        )
+        sb_int.set_aws_credentials("AKIATEST", "secrettest")
+        sb_int.save()
+        sb_tpl = EmailTemplate.objects.create(
+            name="Welcome Email",
+            subject="Hello",
+            html_content="<p>Hi</p>",
+            user=admin_user,
+            environment="sandbox",
+        )
+        sb_event = Event.objects.create(
+            name="Payment Received",
+            slug="payment_received_update",
+            user=admin_user,
+            template=sb_tpl,
+            integration=sb_int,
+            environment="sandbox",
+            is_active=True,
+        )
+        # First promote → creates production event (201)
+        admin_client.post(f"/api/events/{sb_event.id}/promote/")
+        # Update + promote again → updates existing (200)
+        sb_event.name = "Updated Name"
+        sb_event.save()
+        resp = admin_client.post(f"/api/events/{sb_event.id}/promote/")
+        assert resp.status_code == 200
         assert resp.data["name"] == "Updated Name"
 
 

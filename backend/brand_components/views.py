@@ -9,7 +9,7 @@ class BrandComponentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = BrandComponent.objects.filter(user=self.request.user)
+        qs = BrandComponent.objects.filter(user__organization=self.request.user.organization)
         category = self.request.query_params.get('category')
         if category:
             qs = qs.filter(category=category)

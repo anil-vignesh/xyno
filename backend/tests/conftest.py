@@ -5,7 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
-from accounts.models import APIKey
+from accounts.models import APIKey, Organization
 from integrations.models import SESIntegration
 from templates_app.models import EmailTemplate
 from events.models import Event
@@ -37,24 +37,56 @@ def env_client(user, environment="sandbox"):
 
 
 # ---------------------------------------------------------------------------
+# Organizations
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def org(db):
+    org, _ = Organization.objects.get_or_create(name="Test Org")
+    return org
+
+
+@pytest.fixture
+def other_org(db):
+    org, _ = Organization.objects.get_or_create(name="Other Org")
+    return org
+
+
+# ---------------------------------------------------------------------------
 # Users
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def user(db):
+def user(db, org):
     return User.objects.create_user(
         username="testuser",
         email="test@example.com",
         password="testpass123",
+        role="developer",
+        organization=org,
     )
 
 
 @pytest.fixture
-def other_user(db):
+def other_user(db, other_org):
+    """A user in a *different* org — used for cross-org isolation tests."""
     return User.objects.create_user(
         username="other",
         email="other@example.com",
         password="otherpass123",
+        role="developer",
+        organization=other_org,
+    )
+
+
+@pytest.fixture
+def admin_user(db, org):
+    return User.objects.create_user(
+        username="admin",
+        email="admin@example.com",
+        password="adminpass123",
+        role="admin",
+        organization=org,
     )
 
 
@@ -65,7 +97,19 @@ def client(user):
 
 @pytest.fixture
 def prod_client(user):
+    # Developer users are locked to sandbox by get_environment_from_request;
+    # use prod_admin_client for tests that need real production access.
     return env_client(user, "production")
+
+
+@pytest.fixture
+def admin_client(admin_user):
+    return env_client(admin_user, "sandbox")
+
+
+@pytest.fixture
+def prod_admin_client(admin_user):
+    return env_client(admin_user, "production")
 
 
 # ---------------------------------------------------------------------------
@@ -89,10 +133,10 @@ def sandbox_integration(user):
 
 
 @pytest.fixture
-def prod_integration(user):
+def prod_integration(admin_user):
     i = SESIntegration(
         name="SB Integration",
-        user=user,
+        user=admin_user,
         environment="production",
         region="us-east-1",
         sender_email="sender@example.com",
@@ -120,12 +164,12 @@ def sandbox_template(user):
 
 
 @pytest.fixture
-def prod_template(user):
+def prod_template(admin_user):
     return EmailTemplate.objects.create(
         name="Welcome Email",
         subject="Hello {{name}}",
         html_content="<p>Hi {{name}}, welcome!</p>",
-        user=user,
+        user=admin_user,
         environment="production",
     )
 
@@ -148,11 +192,11 @@ def sandbox_event(user, sandbox_template, sandbox_integration):
 
 
 @pytest.fixture
-def prod_event(user, prod_template, prod_integration):
+def prod_event(admin_user, prod_template, prod_integration):
     return Event.objects.create(
         name="Payment Received",
         slug="payment_received",
-        user=user,
+        user=admin_user,
         template=prod_template,
         integration=prod_integration,
         environment="production",
@@ -178,13 +222,13 @@ def sandbox_api_key(user):
 
 
 @pytest.fixture
-def prod_api_key(user):
+def prod_api_key(admin_user):
     raw = APIKey.generate_key()
     APIKey.objects.create(
         key=APIKey.hash_key(raw),
         prefix=raw[:8],
         name="Production Key",
-        user=user,
+        user=admin_user,
         environment="production",
     )
     return raw
