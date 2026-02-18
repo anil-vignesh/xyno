@@ -22,10 +22,19 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   Legend,
 } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+
+const chartConfig = {
+  sent: { label: "Sent", color: "#22c55e" },
+  failed: { label: "Failed", color: "#ef4444" },
+} satisfies ChartConfig;
 
 const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   sent: "default",
@@ -105,27 +114,17 @@ export default function DashboardPage() {
             <CardTitle className="text-base">Email Volume (Last 7 Days)</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <BarChart data={data.daily_breakdown}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="date" fontSize={12} className="fill-muted-foreground" />
-                <YAxis fontSize={12} className="fill-muted-foreground" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius-md)",
-                    color: "hsl(var(--card-foreground))",
-                    fontSize: 12,
-                    boxShadow: "none",
-                  }}
-                  cursor={{ fill: "hsl(var(--muted))" }}
-                />
-                <Legend />
-                <Bar dataKey="sent" fill="#22c55e" name="Sent" />
-                <Bar dataKey="failed" fill="#ef4444" name="Failed" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: "hsl(var(--muted) / 0.4)" }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="sent" fill="var(--color-sent)" name="Sent" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="failed" fill="var(--color-failed)" name="Failed" radius={[3, 3, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
       )}
