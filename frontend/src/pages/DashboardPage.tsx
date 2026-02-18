@@ -107,10 +107,20 @@ export default function DashboardPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={data.daily_breakdown}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" fontSize={12} />
-                <YAxis fontSize={12} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="date" fontSize={12} className="fill-muted-foreground" />
+                <YAxis fontSize={12} className="fill-muted-foreground" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius-md)",
+                    color: "hsl(var(--card-foreground))",
+                    fontSize: 12,
+                    boxShadow: "none",
+                  }}
+                  cursor={{ fill: "hsl(var(--muted))" }}
+                />
                 <Legend />
                 <Bar dataKey="sent" fill="#22c55e" name="Sent" />
                 <Bar dataKey="failed" fill="#ef4444" name="Failed" />

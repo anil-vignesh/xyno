@@ -20,6 +20,7 @@ export function AppLayout() {
             <Button
               variant="ghost"
               size="icon"
+              className="relative"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               title="Toggle theme"
             >
