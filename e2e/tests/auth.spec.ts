@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { registerAndLogin, fixDockerApiRouting } from "./helpers";
 
 test.describe("Authentication", () => {
   test("login page renders", async ({ page }) => {
@@ -10,6 +11,7 @@ test.describe("Authentication", () => {
   });
 
   test("register and login flow", async ({ page }) => {
+    await fixDockerApiRouting(page);
     const suffix = Date.now().toString();
     await page.goto("/register");
     await page.waitForLoadState("networkidle");
@@ -18,7 +20,7 @@ test.describe("Authentication", () => {
     await page.fill("#password", "testpass123!");
     await page.fill("#password_confirm", "testpass123!");
     await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard", { timeout: 10_000 });
+    await page.waitForURL("**/dashboard", { timeout: 20_000 });
     await expect(page).toHaveURL(/dashboard/);
   });
 
@@ -39,7 +41,6 @@ test.describe("Authentication", () => {
   });
 
   test("logout clears session", async ({ page }) => {
-    const { registerAndLogin } = await import("./helpers");
     await registerAndLogin(page);
     await page.click('button[title="Logout"]');
     await page.waitForURL("**/login");
