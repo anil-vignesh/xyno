@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import EventViewSet, TriggerEventView
 
 router = DefaultRouter()
-router.register(r'', EventViewSet, basename='event')
+router.register(r'definitions', EventViewSet, basename='event')
 
 urlpatterns = [
     path('trigger/', TriggerEventView.as_view(), name='trigger-event'),
