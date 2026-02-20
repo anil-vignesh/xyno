@@ -18,6 +18,10 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
+        if Organization.objects.exists():
+            raise serializers.ValidationError(
+                'Registration is disabled. Please contact your admin for an invite.'
+            )
         return data
 
     def create(self, validated_data):

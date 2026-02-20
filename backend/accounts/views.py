@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from integrations.models import SESIntegration
 
-from .models import APIKey, InviteToken, PasswordResetToken
+from .models import APIKey, InviteToken, Organization, PasswordResetToken
 from .permissions import IsAdminRole
 from .serializers import (
     APIKeyCreateSerializer,
@@ -74,6 +74,14 @@ def _send_invite_email(integration, recipient_email, first_name, invite_url):
 # ---------------------------------------------------------------------------
 # Auth views
 # ---------------------------------------------------------------------------
+
+class RegistrationStatusView(APIView):
+    """Returns whether public registration is currently open (no org exists yet)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({'registration_open': not Organization.objects.exists()})
+
 
 class RegisterView(CreateAPIView):
     queryset = User.objects.all()

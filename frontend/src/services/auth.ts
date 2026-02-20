@@ -16,6 +16,9 @@ export const authApi = {
     company_name?: string;
   }) => api.post("/auth/register/", data),
 
+  getRegistrationStatus: () =>
+    api.get<{ registration_open: boolean }>("/auth/registration-status/"),
+
   getProfile: () => api.get<User>("/auth/profile/"),
 
   updateProfile: (data: Partial<User>) => api.patch<User>("/auth/profile/", data),
