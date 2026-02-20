@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { authApi } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,9 +18,15 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
 
-  if (isLoading) return null;
+  useEffect(() => {
+    authApi.getRegistrationStatus().then(({ data }) => setRegistrationOpen(data.registration_open));
+  }, []);
+
+  if (isLoading || registrationOpen === null) return null;
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (!registrationOpen) return <Navigate to="/login" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

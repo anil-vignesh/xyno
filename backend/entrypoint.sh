@@ -25,6 +25,9 @@ echo "PostgreSQL is ready."
 echo "Running migrations..."
 python manage.py migrate --noinput
 
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
 echo "Seeding default user..."
 python manage.py seed_user
 
