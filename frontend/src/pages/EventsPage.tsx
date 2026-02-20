@@ -189,7 +189,7 @@ export default function EventsPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const triggerCode = selectedEvent
-    ? `curl -X POST http://localhost:8000/api/events/trigger/ \\
+    ? `curl -X POST ${window.location.origin}/api/events/trigger/ \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

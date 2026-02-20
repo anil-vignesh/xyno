@@ -27,7 +27,7 @@ test.describe("Events", () => {
     });
     const tpl = await tplResp.json();
 
-    await page.request.post("http://localhost:8000/api/events/", {
+    await page.request.post("http://localhost:8000/api/events/definitions/", {
       headers: { Authorization: `Bearer ${token}`, "X-Environment": "sandbox", "Content-Type": "application/json" },
       data: { name: "Test Event", description: "", template: tpl.id, integration: null, is_active: true },
     });
@@ -48,7 +48,7 @@ test.describe("Events", () => {
   test("trigger code dialog shows curl command", async ({ page }) => {
     await registerAndLogin(page);
     const token = await page.evaluate(() => localStorage.getItem("access_token"));
-    await page.request.post("http://localhost:8000/api/events/", {
+    await page.request.post("http://localhost:8000/api/events/definitions/", {
       headers: { Authorization: `Bearer ${token}`, "X-Environment": "sandbox", "Content-Type": "application/json" },
       data: { name: "Curl Event", description: "", template: null, integration: null, is_active: true },
     });
