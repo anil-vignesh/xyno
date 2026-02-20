@@ -155,6 +155,10 @@ CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'socket_keepalive': True,
+    'retry_on_timeout': True,
+}
 
 # Encryption
 FERNET_KEY = config('FERNET_KEY', default='')
