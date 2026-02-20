@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { authApi } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,10 +15,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
 
   useEffect(() => {
     const msg = (location.state as { message?: string } | null)?.message;
     if (msg) toast.success(msg);
+    authApi.getRegistrationStatus().then(({ data }) => setRegistrationOpen(data.registration_open));
   }, []);
 
   if (isLoading) return null;
@@ -83,12 +86,14 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Signing in..." : "Sign in"}
             </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-primary underline">
-                Register
-              </Link>
-            </p>
+            {registrationOpen && (
+              <p className="text-center text-sm text-muted-foreground">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-primary underline">
+                  Register
+                </Link>
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

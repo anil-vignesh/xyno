@@ -7,6 +7,7 @@ from .views import (
     ForgotPasswordView,
     InviteUserView,
     RegisterView,
+    RegistrationStatusView,
     ResetPasswordView,
     SetPasswordView,
     UserManagementViewSet,
@@ -18,6 +19,7 @@ router.register(r'api-keys', APIKeyViewSet, basename='api-key')
 router.register(r'users', UserManagementViewSet, basename='user-management')
 
 urlpatterns = [
+    path('registration-status/', RegistrationStatusView.as_view(), name='registration-status'),
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

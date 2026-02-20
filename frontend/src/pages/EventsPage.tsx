@@ -188,8 +188,9 @@ export default function EventsPage() {
   const update = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
   const triggerCode = selectedEvent
-    ? `curl -X POST ${window.location.origin}/api/events/trigger/ \\
+    ? `curl -X POST ${apiBase}/api/events/trigger/ \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

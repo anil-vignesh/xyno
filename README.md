@@ -90,24 +90,13 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py createsuperuser
 ```
 
-### 5. Bootstrap your organization
+### 5. Register your first admin account
 
-1. Open the Django admin at **http://localhost:8000/admin/**
-2. Log in with the superuser credentials
-3. Go to **Accounts → Organizations → Add Organization**
-4. Create your company's organization (e.g. "Acme Corp")
-5. Go to **Accounts → Users**, find your superuser, and assign it to the organization
+Open **http://localhost:5173/register** and create an account using your **Company Name**.
 
-### 6. Register your first admin account
+> Registration automatically creates an Organization from the company name and grants the registering user `admin` role. No manual Django admin setup required.
 
-Open **http://localhost:5173/register** and create an account. Then:
-
-1. In Django admin → **Accounts → Users**, find the newly created user
-2. Set their **role** to `admin`
-3. Set their **organization** to your company org
-4. Ensure **is_active** is checked
-
-> **Note:** All team members must belong to an organization to access shared resources. Admins manage users from the **User Management** page inside the app.
+> **Registration is only open once** — after the first admin registers, the `/register` page is disabled and hidden. All subsequent users must be invited by an admin from the **User Management** page.
 
 ### 7. Set up AWS SES Integration
 
@@ -183,7 +172,7 @@ You can send a test email from the event detail page before going live.
 Events are triggered by your backend using an **API Key**. Generate one under **API Keys**.
 
 ```bash
-curl -X POST https://your-xyno-host/api/events/trigger/ \
+curl -X POST https://api-xyno.eximpe.com/api/events/trigger/ \
   -H "X-API-Key: xk_sandbox_xxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -239,9 +228,9 @@ All require JWT. Set environment via `X-Environment: sandbox` or `X-Environment:
 | POST | `/api/templates/{id}/preview/` | Render template with context data |
 | POST | `/api/templates/{id}/promote/` | Copy sandbox template to production |
 | POST | `/api/templates/upload-html/` | Create template from HTML file |
-| GET/POST | `/api/events/` | List / create events |
-| POST | `/api/events/{id}/test/` | Send a test email for this event |
-| POST | `/api/events/{id}/promote/` | Copy sandbox event to production |
+| GET/POST | `/api/events/definitions/` | List / create events |
+| POST | `/api/events/definitions/{id}/test/` | Send a test email for this event |
+| POST | `/api/events/definitions/{id}/promote/` | Copy sandbox event to production |
 | GET | `/api/logs/` | List email logs (paginated, filterable) |
 | GET | `/api/logs/dashboard-stats/` | Aggregate email statistics |
 
