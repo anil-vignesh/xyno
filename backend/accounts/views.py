@@ -1,3 +1,4 @@
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -10,7 +11,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from integrations.models import SESIntegration
+from integrations.models import PlatformSESConfig, SESIntegration
+
+logger = logging.getLogger(__name__)
 
 from .models import APIKey, InviteToken, Organization, PasswordResetToken
 from .permissions import IsAdminRole
@@ -202,23 +205,26 @@ class InviteUserView(APIView):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         invite_url = f"{frontend_url}/set-password?token={token_obj.token}"
 
-        # Attempt to send via the admin's SES sandbox integration
-        ses = SESIntegration.objects.filter(
-            user=request.user,
-            environment='sandbox',
-            is_active=True,
-            is_verified=True,
-        ).first()
+        # Use platform SES config first; fall back to admin's own integration
+        ses = PlatformSESConfig.objects.filter(is_active=True).first()
+        if not ses:
+            ses = SESIntegration.objects.filter(
+                user=request.user,
+                environment='sandbox',
+                is_active=True,
+                is_verified=True,
+            ).first()
 
         warning = None
         if ses:
             try:
                 _send_invite_email(ses, data['email'], data['first_name'], invite_url)
             except Exception as exc:
+                logger.error(f"Failed to send invite email to {data['email']}: {exc}")
                 warning = f"User created but invite email failed: {exc}"
         else:
             warning = (
-                "No active, verified SES sandbox integration found. "
+                "No active SES configuration found. "
                 "Share the invite link below manually."
             )
 
@@ -327,19 +333,21 @@ class ForgotPasswordView(APIView):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         reset_url = f"{frontend_url}/reset-password?token={token_obj.token}"
 
-        # Attempt to send via the user's own SES sandbox integration
-        ses = SESIntegration.objects.filter(
-            user=user,
-            environment='sandbox',
-            is_active=True,
-            is_verified=True,
-        ).first()
+        # Use platform SES config first; fall back to any org member's integration
+        ses = PlatformSESConfig.objects.filter(is_active=True).first()
+        if not ses:
+            ses = SESIntegration.objects.filter(
+                user__organization=user.organization,
+                environment='sandbox',
+                is_active=True,
+                is_verified=True,
+            ).first()
 
         if ses:
             try:
                 _send_reset_email(ses, email, reset_url)
-            except Exception:
-                pass  # Silently swallow — don't leak info about failures
+            except Exception as exc:
+                logger.error(f"Failed to send password reset email to {email}: {exc}")
 
         return generic_response
 

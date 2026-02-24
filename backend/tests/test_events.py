@@ -79,8 +79,7 @@ class TestEventPromote:
             environment="sandbox",
         )
         event = Event.objects.create(
-            name="Payment Received",
-            slug="payment_received_promote",
+            name="Payment Received Promote",
             user=admin_user,
             template=sb_tpl,
             integration=sb_int,
@@ -103,7 +102,6 @@ class TestEventPromote:
         )
         event = Event.objects.create(
             name="Orphan Event",
-            slug="orphan_event",
             user=user,
             template=tpl,
             integration=sandbox_integration,
@@ -128,7 +126,6 @@ class TestEventPromote:
         i.save()
         event = Event.objects.create(
             name="Int Orphan Event",
-            slug="int_orphan_event",
             user=user,
             template=sandbox_template,
             integration=i,
@@ -164,8 +161,7 @@ class TestEventPromote:
             environment="sandbox",
         )
         sb_event = Event.objects.create(
-            name="Payment Received",
-            slug="payment_received_update",
+            name="Payment Received Update",
             user=admin_user,
             template=sb_tpl,
             integration=sb_int,
@@ -180,6 +176,40 @@ class TestEventPromote:
         resp = admin_client.post(f"/api/events/{sb_event.id}/promote/")
         assert resp.status_code == 200
         assert resp.data["name"] == "Updated Name"
+
+
+@pytest.mark.django_db
+class TestEventSlugBehaviour:
+    def test_slug_auto_generated_on_create(self, user, sandbox_template, sandbox_integration):
+        event = Event.objects.create(
+            name="Welcome Email",
+            user=user,
+            template=sandbox_template,
+            integration=sandbox_integration,
+            environment="sandbox",
+        )
+        assert event.slug == "welcome_email"
+
+    def test_slug_updates_when_name_changes(self, sandbox_event):
+        sandbox_event.name = "New Event Name"
+        sandbox_event.save()
+        sandbox_event.refresh_from_db()
+        assert sandbox_event.slug == "new_event_name"
+
+    def test_slug_updates_via_api(self, client, sandbox_event):
+        resp = client.patch(f"/api/events/{sandbox_event.id}/", {"name": "Renamed Event"}, format="json")
+        assert resp.status_code == 200
+        assert resp.data["slug"] == "renamed_event"
+
+    def test_slug_special_chars_become_underscores(self, user, sandbox_template, sandbox_integration):
+        event = Event.objects.create(
+            name="Hello World! 123",
+            user=user,
+            template=sandbox_template,
+            integration=sandbox_integration,
+            environment="sandbox",
+        )
+        assert event.slug == "hello_world_123"
 
 
 @pytest.mark.django_db
@@ -231,7 +261,6 @@ class TestTriggerEventView:
     def test_inactive_event_not_triggered(self, user, sandbox_template, sandbox_integration, sandbox_api_key):
         event = Event.objects.create(
             name="Inactive Event",
-            slug="inactive_event",
             user=user,
             template=sandbox_template,
             integration=sandbox_integration,

@@ -70,3 +70,47 @@ class SESIntegration(models.Model):
             aws_secret_access_key=self.get_aws_secret_key(),
             region_name=self.region,
         )
+
+
+class PlatformSESConfig(models.Model):
+    """Singleton platform-level SES config for all system emails (invites, password reset, etc.)"""
+
+    aws_access_key_encrypted = models.TextField()
+    aws_secret_key_encrypted = models.TextField()
+    region = models.CharField(max_length=20, choices=SESIntegration.AWS_REGIONS)
+    sender_email = models.EmailField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Platform SES Configuration'
+        verbose_name_plural = 'Platform SES Configuration'
+
+    def __str__(self):
+        return f'Platform SES ({self.sender_email})'
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton — only one record allowed
+        if not self.pk and PlatformSESConfig.objects.exists():
+            raise ValueError('Only one Platform SES Configuration is allowed.')
+        super().save(*args, **kwargs)
+
+    def set_aws_credentials(self, access_key: str, secret_key: str):
+        self.aws_access_key_encrypted = encrypt_value(access_key)
+        self.aws_secret_key_encrypted = encrypt_value(secret_key)
+
+    def get_aws_access_key(self) -> str:
+        return decrypt_value(self.aws_access_key_encrypted)
+
+    def get_aws_secret_key(self) -> str:
+        return decrypt_value(self.aws_secret_key_encrypted)
+
+    def get_ses_client(self):
+        import boto3
+        return boto3.client(
+            'ses',
+            aws_access_key_id=self.get_aws_access_key(),
+            aws_secret_access_key=self.get_aws_secret_key(),
+            region_name=self.region,
+        )
