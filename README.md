@@ -112,7 +112,42 @@ Xyno sends system emails (invite links, password reset) using a **platform-level
 
 > Only one Platform SES Configuration is allowed (singleton). The AWS credentials are encrypted at rest using Fernet.
 
-### 7. Set up AWS SES Integration (for transactional email)
+### 7. Configure Platform S3 (for image storage)
+
+Xyno uses a **platform-level S3 config** to store images uploaded in the template builder and brand component thumbnails. Images are stored per-org (`{org_id}/images/`) and served publicly so they remain accessible to email recipients.
+
+1. Open the Django admin at **http://localhost:8000/admin/**
+2. Go to **Integrations → Platform S3 Configuration → Add**
+3. Enter your AWS Access Key, Secret Key, region, and bucket name
+4. Ensure **Is active** is checked and save
+
+> Without this, image uploads in the template builder will return a 503 error. Templates still work — images just can't be uploaded through Xyno.
+
+> Only one Platform S3 Configuration is allowed (singleton). Credentials are encrypted at rest using Fernet.
+
+**Required IAM permissions for the S3 user:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["s3:PutObject", "s3:PutObjectAcl", "s3:GetObject", "s3:DeleteObject"],
+    "Resource": "arn:aws:s3:::{your-bucket-name}/*"
+  }]
+}
+```
+
+**Required S3 bucket CORS policy:**
+```json
+[{
+  "AllowedHeaders": ["*"],
+  "AllowedMethods": ["PUT", "POST", "GET"],
+  "AllowedOrigins": ["https://your-frontend-domain.com", "http://localhost:5173"],
+  "ExposeHeaders": []
+}]
+```
+
+### 8. Set up AWS SES Integration (for transactional email)
 
 Each organization configures their own SES integration for sending transactional emails (event-triggered emails to end users).
 
@@ -250,6 +285,7 @@ All require JWT. Set environment via `X-Environment: sandbox` or `X-Environment:
 | POST | `/api/events/definitions/{id}/promote/` | Copy sandbox event to production |
 | GET | `/api/logs/` | List email logs (paginated, filterable) |
 | GET | `/api/logs/dashboard-stats/` | Aggregate email statistics |
+| POST | `/api/media/upload/` | Upload an image to S3 (returns `{ url }`) |
 
 ### Event Trigger (API Key auth)
 
@@ -286,4 +322,5 @@ All 61 tests should pass.
 - **`perform_create`** still uses `user=request.user` — the creator is recorded for audit purposes
 - **Celery** handles all email sending asynchronously via the `send_event_email` task
 - **Platform SES config** is a singleton model — system emails (invites, password reset) use it first, falling back to an org member's integration if not configured
+- **Platform S3 config** is a singleton model — images are stored org-scoped at `{org_id}/images/{uuid}.{ext}` and uploaded with `public-read` ACL so email recipients can always load them
 - **Event slugs** are always auto-generated from the event name on save — manual slug entry is not required
