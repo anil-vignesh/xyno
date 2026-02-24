@@ -80,7 +80,6 @@ class EventViewSet(viewsets.ModelViewSet):
         else:
             prod_event = Event.objects.create(
                 name=event.name,
-                slug=event.slug,
                 description=event.description,
                 template=prod_template,
                 integration=prod_integration,

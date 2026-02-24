@@ -182,7 +182,6 @@ def prod_template(admin_user):
 def sandbox_event(user, sandbox_template, sandbox_integration):
     return Event.objects.create(
         name="Payment Received",
-        slug="payment_received",
         user=user,
         template=sandbox_template,
         integration=sandbox_integration,
@@ -195,7 +194,6 @@ def sandbox_event(user, sandbox_template, sandbox_integration):
 def prod_event(admin_user, prod_template, prod_integration):
     return Event.objects.create(
         name="Payment Received",
-        slug="payment_received",
         user=admin_user,
         template=prod_template,
         integration=prod_integration,

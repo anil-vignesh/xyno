@@ -307,7 +307,7 @@ export default function EventsPage() {
             <div className="space-y-2">
               <Label>Event Name</Label>
               <Input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Welcome Email" required />
-              {!editingEvent && form.name && (
+              {form.name && (
                 <p className="text-xs text-muted-foreground">
                   Slug: <code>{form.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}</code>
                 </p>

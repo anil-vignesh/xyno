@@ -49,6 +49,5 @@ class Event(models.Model):
         return f"{self.name} ({self.slug})"
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name).replace('-', '_')
+        self.slug = slugify(self.name).replace('-', '_')
         super().save(*args, **kwargs)
