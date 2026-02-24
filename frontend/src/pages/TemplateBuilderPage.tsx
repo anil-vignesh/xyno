@@ -8,7 +8,6 @@ import "grapesjs/dist/css/grapes.min.css";
 import juice from "juice";
 import { templatesApi } from "@/services/templates";
 import { brandComponentsApi } from "@/services/brandComponents";
-import { mediaApi } from "@/services/media";
 import type { BrandComponent, Placeholder } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,22 +285,6 @@ export default function TemplateBuilderPage() {
               pluginsOpts: {
                 [newsletterPlugin as unknown as string]: {
                   inlineCss: true,
-                },
-              },
-              assetManager: {
-                uploadFile: async (e: DragEvent | Event) => {
-                  const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
-                  const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
-                  if (!files?.length || !editor) return;
-                  const uploads = Array.from(files).map(async (file) => {
-                    try {
-                      const url = await mediaApi.upload(file);
-                      editor.AssetManager.add({ src: url, type: 'image' });
-                    } catch {
-                      toast.error(`Failed to upload ${file.name}`);
-                    }
-                  });
-                  await Promise.all(uploads);
                 },
               },
             }}

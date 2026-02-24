@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Blocks, Eye, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { brandComponentsApi } from "@/services/brandComponents";
-import { mediaApi } from "@/services/media";
 import type { BrandComponent } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,8 +59,6 @@ export default function BrandComponentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState("");
-  const [thumbnailUploading, setThumbnailUploading] = useState(false);
-  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "",
     category: "other",
@@ -162,22 +159,6 @@ export default function BrandComponentsPage() {
 
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
-
-  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setThumbnailUploading(true);
-    try {
-      const url = await mediaApi.upload(file);
-      update("thumbnail_url", url);
-      toast.success("Thumbnail uploaded");
-    } catch {
-      toast.error("Failed to upload thumbnail");
-    } finally {
-      setThumbnailUploading(false);
-      if (thumbnailInputRef.current) thumbnailInputRef.current.value = "";
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -332,32 +313,11 @@ export default function BrandComponentsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Thumbnail (optional)</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={thumbnailUploading}
-                  onClick={() => thumbnailInputRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-3 w-3" />
-                  {thumbnailUploading ? "Uploading..." : "Upload Image"}
-                </Button>
-                {form.thumbnail_url && (
-                  <img
-                    src={form.thumbnail_url}
-                    alt="Thumbnail preview"
-                    className="h-8 w-8 rounded object-cover border"
-                  />
-                )}
-              </div>
-              <input
-                ref={thumbnailInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                className="hidden"
-                onChange={handleThumbnailUpload}
+              <Label>Thumbnail URL (optional)</Label>
+              <Input
+                value={form.thumbnail_url}
+                onChange={(e) => update("thumbnail_url", e.target.value)}
+                placeholder="https://example.com/preview.png"
               />
             </div>
             <DialogFooter>
