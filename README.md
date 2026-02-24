@@ -98,7 +98,23 @@ Open **http://localhost:5173/register** and create an account using your **Compa
 
 > **Registration is only open once** — after the first admin registers, the `/register` page is disabled and hidden. All subsequent users must be invited by an admin from the **User Management** page.
 
-### 7. Set up AWS SES Integration
+### 6. Configure Platform SES (for system emails)
+
+Xyno sends system emails (invite links, password reset) using a **platform-level SES config** managed by the superuser. This is separate from per-org integrations used for transactional email.
+
+1. Open the Django admin at **http://localhost:8000/admin/**
+2. Log in with your superuser credentials
+3. Go to **Integrations → Platform SES Configuration → Add**
+4. Enter your AWS Access Key, Secret Key, region, and sender email
+5. Ensure **Is active** is checked and save
+
+> Without this, invite and password reset emails will not be sent. The admin will be shown the invite link directly as a fallback so users can still be onboarded manually.
+
+> Only one Platform SES Configuration is allowed (singleton). The AWS credentials are encrypted at rest using Fernet.
+
+### 7. Set up AWS SES Integration (for transactional email)
+
+Each organization configures their own SES integration for sending transactional emails (event-triggered emails to end users).
 
 1. Log in to Xyno at **http://localhost:5173**
 2. Navigate to **SES Integrations** → **Add Integration**
@@ -206,7 +222,8 @@ All endpoints are prefixed with `/api/`. JWT auth is required unless noted.
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/register/` | None | Create a new account |
+| GET | `/api/auth/registration-status/` | None | Check if registration is open (no org exists yet) |
+| POST | `/api/auth/register/` | None | Create first admin account (disabled after first org is created) |
 | POST | `/api/auth/login/` | None | Obtain JWT access + refresh tokens |
 | POST | `/api/auth/token/refresh/` | None | Refresh access token |
 | GET | `/api/auth/profile/` | JWT | Get current user profile |
@@ -262,9 +279,11 @@ All 61 tests should pass.
 
 ## Tech Notes for Contributors
 
-- **AWS credentials** are encrypted with Fernet before storage — never stored in plaintext
+- **AWS credentials** are encrypted with Fernet before storage — never stored in plaintext (applies to both org integrations and Platform SES config)
 - **API keys** are hashed with SHA-256 — the raw key is shown only once at creation
 - **Template rendering** uses simple `{{var}}` string replacement — no Jinja2, preventing template injection
 - **Org scoping:** all reads use `filter(user__organization=...)` — every user in the same org shares all data
 - **`perform_create`** still uses `user=request.user` — the creator is recorded for audit purposes
 - **Celery** handles all email sending asynchronously via the `send_event_email` task
+- **Platform SES config** is a singleton model — system emails (invites, password reset) use it first, falling back to an org member's integration if not configured
+- **Event slugs** are always auto-generated from the event name on save — manual slug entry is not required
