@@ -28,10 +28,7 @@ jobs:
             --instance-ids i-0220633d44187cf72 \
             --document-name AWS-RunShellScript \
             --parameters 'commands=[
-              "cd /home/ubuntu/xyno",
-              "git pull origin main",
-              "docker compose -f docker-compose.prod.yml up --build -d",
-              "docker compose -f docker-compose.prod.yml exec -T backend python manage.py migrate --noinput"
+              "sudo -u ubuntu bash -c \"cd /home/ubuntu/xyno && git pull origin main && docker compose -f docker-compose.prod.yml up --build -d && docker compose -f docker-compose.prod.yml exec -T backend python manage.py migrate --noinput\""
             ]' \
             --timeout-seconds 300 \
             --query 'Command.CommandId' \
