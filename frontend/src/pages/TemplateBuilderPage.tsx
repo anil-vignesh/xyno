@@ -91,6 +91,28 @@ export default function TemplateBuilderPage() {
     setEditor(editorInstance);
     setEditorReady(true);
 
+    // Override uploadFile on the AssetManager AFTER all plugins have run.
+    // Setting it in editorOptions is unreliable because grapesjs-preset-newsletter
+    // reconfigures the asset manager during its own init, wiping out our handler.
+    (editorInstance.AssetManager as any).config.uploadFile = async (e: Event) => {
+      const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
+      const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
+      if (!files?.length) return;
+
+      const uploads = Array.from(files).map(async (file) => {
+        const toastId = toast.loading(`Uploading ${file.name}…`);
+        try {
+          const url = await mediaApi.upload(file);
+          editorInstance.AssetManager.add({ src: url, type: 'image' });
+          toast.success(`${file.name} uploaded`, { id: toastId });
+        } catch {
+          toast.error(`Failed to upload ${file.name}`, { id: toastId });
+        }
+      });
+
+      await Promise.all(uploads);
+    };
+
     // When a file is dropped directly onto an image component on the canvas,
     // GrapeJS embeds it as a base64 data URL, bypassing the asset manager.
     // Intercept that here and upload to S3 immediately.
@@ -146,26 +168,6 @@ export default function TemplateBuilderPage() {
     pluginsOpts: {
       [newsletterPlugin as unknown as string]: {
         inlineCss: true,
-      },
-    },
-    assetManager: {
-      uploadFile: async (e: DragEvent | Event) => {
-        const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
-        const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
-        if (!files?.length || !editorRef.current) return;
-
-        const uploads = Array.from(files).map(async (file) => {
-          const toastId = toast.loading(`Uploading ${file.name}…`);
-          try {
-            const url = await mediaApi.upload(file);
-            editorRef.current!.AssetManager.add({ src: url, type: 'image' });
-            toast.success(`${file.name} uploaded`, { id: toastId });
-          } catch {
-            toast.error(`Failed to upload ${file.name}`, { id: toastId });
-          }
-        });
-
-        await Promise.all(uploads);
       },
     },
   }), []);
