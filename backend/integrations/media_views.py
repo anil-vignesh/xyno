@@ -55,7 +55,6 @@ class MediaUploadView(APIView):
                 file,
                 bucket_name,
                 key,
-                ExtraArgs={'ACL': 'public-read'},
             )
         except Exception as exc:
             logger.error(f'S3 upload failed for org {org_id}: {exc}')
