@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import grapesjs, { type Editor } from "grapesjs";
@@ -31,6 +31,7 @@ export default function TemplateBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const designLoadedRef = useRef(false);
+  const editorRef = useRef<Editor | null>(null);
   const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
   const [newPlaceholderName, setNewPlaceholderName] = useState("");
   const [showPlaceholders, setShowPlaceholders] = useState(false);
@@ -60,6 +61,7 @@ export default function TemplateBuilderPage() {
 
   // Called when GrapeJS editor is ready
   const onEditorReady = (editorInstance: Editor) => {
+    editorRef.current = editorInstance;
     setEditor(editorInstance);
     setEditorReady(true);
 
@@ -85,6 +87,36 @@ export default function TemplateBuilderPage() {
       });
     }
   };
+
+  const editorOptions = useMemo(() => ({
+    height: "100%",
+    storageManager: false,
+    pluginsOpts: {
+      [newsletterPlugin as unknown as string]: {
+        inlineCss: true,
+      },
+    },
+    assetManager: {
+      uploadFile: async (e: DragEvent | Event) => {
+        const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
+        const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
+        if (!files?.length || !editorRef.current) return;
+
+        const uploads = Array.from(files).map(async (file) => {
+          const toastId = toast.loading(`Uploading ${file.name}…`);
+          try {
+            const url = await mediaApi.upload(file);
+            editorRef.current!.AssetManager.add({ src: url, type: 'image' });
+            toast.success(`${file.name} uploaded`, { id: toastId });
+          } catch {
+            toast.error(`Failed to upload ${file.name}`, { id: toastId });
+          }
+        });
+
+        await Promise.all(uploads);
+      },
+    },
+  }), []);
 
   // Brand component categories for the library panel
   const brandCategories = [
@@ -280,31 +312,7 @@ export default function TemplateBuilderPage() {
             grapesjs={grapesjs}
             onReady={onEditorReady}
             plugins={[newsletterPlugin]}
-            options={{
-              height: "100%",
-              storageManager: false,
-              pluginsOpts: {
-                [newsletterPlugin as unknown as string]: {
-                  inlineCss: true,
-                },
-              },
-              assetManager: {
-                uploadFile: async (e: DragEvent | Event) => {
-                  const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
-                  const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
-                  if (!files?.length || !editor) return;
-                  const uploads = Array.from(files).map(async (file) => {
-                    try {
-                      const url = await mediaApi.upload(file);
-                      editor.AssetManager.add({ src: url, type: 'image' });
-                    } catch {
-                      toast.error(`Failed to upload ${file.name}`);
-                    }
-                  });
-                  await Promise.all(uploads);
-                },
-              },
-            }}
+            options={editorOptions}
           />
         </div>
 
