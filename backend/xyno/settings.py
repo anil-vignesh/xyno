@@ -162,3 +162,7 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 
 # Encryption
 FERNET_KEY = config('FERNET_KEY', default='')
+
+# S3 media storage (org images, etc.)
+S3_MEDIA_BUCKET_NAME = config('S3_MEDIA_BUCKET_NAME', default='')
+S3_MEDIA_REGION = config('S3_MEDIA_REGION', default='us-east-1')
