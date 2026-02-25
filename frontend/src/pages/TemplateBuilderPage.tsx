@@ -21,6 +21,32 @@ function isUnlayerDesign(json: Record<string, unknown>): boolean {
   return !!json.body && !!json.counters;
 }
 
+/**
+ * Find all base64 data-URLs in a string, upload each to S3 via the media API,
+ * and replace them with the returned S3 URLs.  Used as a save-time fallback for
+ * images that bypassed the asset-manager upload (e.g. direct canvas drops).
+ */
+async function replaceBase64WithS3(content: string): Promise<string> {
+  const base64Pattern = /data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/]+=*/g;
+  const uniqueMatches = [...new Set(content.match(base64Pattern) ?? [])];
+  if (!uniqueMatches.length) return content;
+
+  let result = content;
+  for (const dataUrl of uniqueMatches) {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext = (blob.type.split('/')[1] ?? 'jpg').split('+')[0];
+      const file = new File([blob], `image.${ext}`, { type: blob.type });
+      const url = await mediaApi.upload(file);
+      result = result.split(dataUrl).join(url);
+    } catch {
+      // leave as base64 if upload fails
+    }
+  }
+  return result;
+}
+
 export default function TemplateBuilderPage() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const { id } = useParams();
@@ -64,6 +90,32 @@ export default function TemplateBuilderPage() {
     editorRef.current = editorInstance;
     setEditor(editorInstance);
     setEditorReady(true);
+
+    // When a file is dropped directly onto an image component on the canvas,
+    // GrapeJS embeds it as a base64 data URL, bypassing the asset manager.
+    // Intercept that here and upload to S3 immediately.
+    let handlingBase64 = false;
+    editorInstance.on('component:update', async (component: any) => {
+      if (handlingBase64) return;
+      const src = (component.getAttributes?.()?.src ?? '') as string;
+      if (!src.startsWith('data:image/')) return;
+
+      handlingBase64 = true;
+      const toastId = toast.loading('Uploading image…');
+      try {
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const ext = (blob.type.split('/')[1] ?? 'jpg').split('+')[0];
+        const file = new File([blob], `image.${ext}`, { type: blob.type });
+        const url = await mediaApi.upload(file);
+        component.addAttributes({ src: url });
+        toast.success('Image uploaded', { id: toastId });
+      } catch {
+        toast.error('Failed to upload image', { id: toastId });
+      } finally {
+        handlingBase64 = false;
+      }
+    });
 
     if (isEditing && !designLoadedRef.current) {
       templatesApi.get(id!).then(({ data }) => {
@@ -173,7 +225,7 @@ export default function TemplateBuilderPage() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!templateName.trim()) {
       toast.error("Template name is required");
       return;
@@ -186,54 +238,56 @@ export default function TemplateBuilderPage() {
 
     setSaving(true);
 
-    const html = editor.getHtml();
-    const css = editor.getCss();
+    try {
+      const html = editor.getHtml();
+      const css = editor.getCss();
 
-    // GrapeJS getHtml() may return content that already contains <body>/<html> tags
-    // (e.g. imported HTML templates). Avoid double-wrapping.
-    let rawHtml: string;
-    if (html.includes("<body") || html.includes("<html")) {
-      // Already a full document — just inject CSS into the <head> or before </head>
-      if (html.includes("</head>")) {
-        rawHtml = html.replace("</head>", `<style>${css}</style></head>`);
-      } else if (html.includes("<body")) {
-        rawHtml = html.replace(/<body/, `<head><style>${css}</style></head><body`);
+      // GrapeJS getHtml() may return content that already contains <body>/<html> tags
+      // (e.g. imported HTML templates). Avoid double-wrapping.
+      let rawHtml: string;
+      if (html.includes("<body") || html.includes("<html")) {
+        if (html.includes("</head>")) {
+          rawHtml = html.replace("</head>", `<style>${css}</style></head>`);
+        } else if (html.includes("<body")) {
+          rawHtml = html.replace(/<body/, `<head><style>${css}</style></head><body`);
+        } else {
+          rawHtml = `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}</body></html>`;
+        }
       } else {
         rawHtml = `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}</body></html>`;
       }
-    } else {
-      rawHtml = `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}</body></html>`;
+
+      // Inline CSS into style attributes so email clients (Gmail etc.) render correctly
+      let fullHtml = juice(rawHtml) as string;
+      let projectDataStr = JSON.stringify(editor.getProjectData());
+
+      // Safety net: upload any remaining base64 images (e.g. pasted images that
+      // bypassed the component:update listener) to S3 before saving.
+      fullHtml = await replaceBase64WithS3(fullHtml);
+      projectDataStr = await replaceBase64WithS3(projectDataStr);
+
+      const payload = {
+        name: templateName,
+        subject: templateSubject,
+        html_content: fullHtml,
+        design_json: JSON.parse(projectDataStr) as Record<string, unknown>,
+      };
+
+      const res = await (isEditing
+        ? templatesApi.update(id!, payload)
+        : templatesApi.create(payload));
+
+      if (placeholders.length > 0) {
+        await templatesApi.updatePlaceholders(res.data.id, placeholders);
+      }
+
+      toast.success(isEditing ? "Template updated" : "Template created");
+      navigate("/templates");
+    } catch {
+      toast.error("Failed to save template");
+    } finally {
+      setSaving(false);
     }
-
-    // Inline CSS into style attributes so email clients (Gmail etc.) render correctly
-    const fullHtml = juice(rawHtml) as string;
-    const projectData = editor.getProjectData();
-
-    const payload = {
-      name: templateName,
-      subject: templateSubject,
-      html_content: fullHtml,
-      design_json: projectData as Record<string, unknown>,
-    };
-
-    const promise = isEditing
-      ? templatesApi.update(id!, payload)
-      : templatesApi.create(payload);
-
-    promise
-      .then((res) => {
-        if (placeholders.length > 0) {
-          return templatesApi.updatePlaceholders(res.data.id, placeholders);
-        }
-      })
-      .then(() => {
-        toast.success(isEditing ? "Template updated" : "Template created");
-        navigate("/templates");
-      })
-      .catch(() => {
-        toast.error("Failed to save template");
-      })
-      .finally(() => setSaving(false));
   };
 
   return (
