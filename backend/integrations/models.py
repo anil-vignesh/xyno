@@ -72,6 +72,50 @@ class SESIntegration(models.Model):
         )
 
 
+class PlatformS3Config(models.Model):
+    """Singleton platform-level S3 config for org media storage (images, etc.).
+
+    Uses the EC2 instance IAM role for credentials — no access key/secret stored.
+    Only the bucket name and region are needed.
+    """
+
+    AWS_REGIONS = SESIntegration.AWS_REGIONS
+
+    region = models.CharField(max_length=20, choices=AWS_REGIONS)
+    bucket_name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Platform S3 Configuration'
+        verbose_name_plural = 'Platform S3 Configuration'
+
+    def __str__(self):
+        return f'Platform S3 ({self.bucket_name})'
+
+    def save(self, *args, **kwargs):
+        if not self.pk and PlatformS3Config.objects.exists():
+            raise ValueError('Only one Platform S3 Configuration is allowed.')
+        super().save(*args, **kwargs)
+
+    def get_s3_client(self):
+        import boto3
+        # No explicit credentials — boto3 picks up the EC2 instance IAM role automatically.
+        return boto3.client('s3', region_name=self.region)
+
+    def upload_file(self, file_obj, key: str) -> str:
+        """Upload a file-like object to S3 and return its public URL."""
+        client = self.get_s3_client()
+        client.upload_fileobj(
+            file_obj,
+            self.bucket_name,
+            key,
+            ExtraArgs={'ACL': 'public-read'},
+        )
+        return f'https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{key}'
+
+
 class PlatformSESConfig(models.Model):
     """Singleton platform-level SES config for all system emails (invites, password reset, etc.)"""
 

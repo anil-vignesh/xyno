@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 
-from .models import PlatformSESConfig, SESIntegration
+from .models import PlatformS3Config, PlatformSESConfig, SESIntegration
 
 
 @admin.register(SESIntegration)
@@ -46,3 +46,13 @@ class PlatformSESConfigAdmin(admin.ModelAdmin):
         if access_key and secret_key:
             obj.set_aws_credentials(access_key, secret_key)
         super().save_model(request, obj, form, change)
+
+
+@admin.register(PlatformS3Config)
+class PlatformS3ConfigAdmin(admin.ModelAdmin):
+    list_display = ['bucket_name', 'region', 'is_active', 'created_at']
+    readonly_fields = ['created_at', 'updated_at']
+    fields = ['region', 'bucket_name', 'is_active']
+
+    def has_add_permission(self, request):
+        return not PlatformS3Config.objects.exists()
