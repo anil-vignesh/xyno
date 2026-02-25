@@ -28,6 +28,8 @@ jobs:
             --instance-ids i-0220633d44187cf72 \
             --document-name AWS-RunShellScript \
             --parameters 'commands=[
+              "aws ssm get-parameter --name /xyno/prod/env --with-decryption --region ap-south-1 --query Parameter.Value --output text > /home/ubuntu/xyno/.env",
+              "chown ubuntu:ubuntu /home/ubuntu/xyno/.env && chmod 600 /home/ubuntu/xyno/.env",
               "sudo -u ubuntu bash -c \"cd /home/ubuntu/xyno && git pull origin main && docker compose -f docker-compose.prod.yml up --build -d && docker compose -f docker-compose.prod.yml exec -T backend python manage.py migrate --noinput\""
             ]' \
             --timeout-seconds 300 \

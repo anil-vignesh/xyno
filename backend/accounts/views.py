@@ -11,7 +11,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from integrations.models import PlatformSESConfig, SESIntegration
+from integrations.models import SESIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -205,8 +205,8 @@ class InviteUserView(APIView):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         invite_url = f"{frontend_url}/set-password?token={token_obj.token}"
 
-        # Use platform SES config first; fall back to admin's own integration
-        ses = PlatformSESConfig.objects.filter(is_active=True).first()
+        # Use platform SES config from env first; fall back to admin's own integration
+        ses = _get_platform_ses_integration()
         if not ses:
             ses = SESIntegration.objects.filter(
                 user=request.user,
@@ -304,6 +304,35 @@ def _send_reset_email(integration, recipient_email, reset_url):
     msg.attach(MIMEText(html, 'html'))
 
     client = integration.get_ses_client()
+
+
+def _get_platform_ses_integration():
+    """Return a SES-like integration object based on env settings, or None if incomplete."""
+    access_key = getattr(settings, 'PLATFORM_SES_ACCESS_KEY', '')
+    secret_key = getattr(settings, 'PLATFORM_SES_SECRET_KEY', '')
+    region = getattr(settings, 'PLATFORM_SES_REGION', '')
+    sender_email = getattr(settings, 'PLATFORM_SES_SENDER_EMAIL', '')
+
+    if not (access_key and secret_key and region and sender_email):
+        return None
+
+    class EnvPlatformSESIntegration:
+        def __init__(self, access_key, secret_key, region, sender_email):
+            self._access_key = access_key
+            self._secret_key = secret_key
+            self._region = region
+            self.sender_email = sender_email
+
+        def get_ses_client(self):
+            import boto3
+            return boto3.client(
+                'ses',
+                aws_access_key_id=self._access_key,
+                aws_secret_access_key=self._secret_key,
+                region_name=self._region,
+            )
+
+    return EnvPlatformSESIntegration(access_key, secret_key, region, sender_email)
     client.send_raw_email(
         Source=integration.sender_email,
         Destinations=[recipient_email],
@@ -333,8 +362,8 @@ class ForgotPasswordView(APIView):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         reset_url = f"{frontend_url}/reset-password?token={token_obj.token}"
 
-        # Use platform SES config first; fall back to any org member's integration
-        ses = PlatformSESConfig.objects.filter(is_active=True).first()
+        # Use platform SES config from env first; fall back to any org member's integration
+        ses = _get_platform_ses_integration()
         if not ses:
             ses = SESIntegration.objects.filter(
                 user__organization=user.organization,
