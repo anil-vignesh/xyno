@@ -112,7 +112,44 @@ Xyno sends system emails (invite links, password reset) using a **platform-level
 
 > Only one Platform SES Configuration is allowed (singleton). The AWS credentials are encrypted at rest using Fernet.
 
-### 7. Set up AWS SES Integration (for transactional email)
+### 7. Configure S3 for Media Storage (image uploads)
+
+Xyno uses S3 to store images uploaded via the template builder and brand components. On EC2, auth is handled automatically via the instance IAM role — no credentials are stored.
+
+1. Open the Django admin at **http://localhost:8000/admin/**
+2. Go to **Integrations → Platform S3 Configuration → Add**
+3. Select the **region** your bucket is in
+4. Enter the **bucket name**
+5. Ensure **Is active** is checked and save
+
+**EC2 IAM role requirements** — attach a policy to the instance role with at minimum:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+  "Resource": "arn:aws:s3:::YOUR-BUCKET-NAME/*"
+}
+```
+
+**S3 bucket CORS config** (required for browser uploads):
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST"],
+    "AllowedOrigins": ["https://your-xyno-domain.com"],
+    "ExposeHeaders": []
+  }
+]
+```
+
+> Images are stored at `{org_id}/images/{uuid}.{ext}` with `public-read` ACL and served directly via the S3 URL.
+
+> Only one Platform S3 Configuration is allowed (singleton). No AWS credentials are stored — authentication uses the EC2 instance IAM role.
+
+### 8. Set up AWS SES Integration (for transactional email)
 
 Each organization configures their own SES integration for sending transactional emails (event-triggered emails to end users).
 
@@ -250,6 +287,7 @@ All require JWT. Set environment via `X-Environment: sandbox` or `X-Environment:
 | POST | `/api/events/definitions/{id}/promote/` | Copy sandbox event to production |
 | GET | `/api/logs/` | List email logs (paginated, filterable) |
 | GET | `/api/logs/dashboard-stats/` | Aggregate email statistics |
+| POST | `/api/media/upload/` | Upload an image to S3 (returns `{ url }`) — JPEG, PNG, GIF, WebP, max 5 MB |
 
 ### Event Trigger (API Key auth)
 
@@ -287,3 +325,4 @@ All 61 tests should pass.
 - **Celery** handles all email sending asynchronously via the `send_event_email` task
 - **Platform SES config** is a singleton model — system emails (invites, password reset) use it first, falling back to an org member's integration if not configured
 - **Event slugs** are always auto-generated from the event name on save — manual slug entry is not required
+- **S3 media storage** uses the EC2 instance IAM role — no credentials are stored in the database. The `PlatformS3Config` singleton holds only the region and bucket name. Images are uploaded with `public-read` ACL and referenced directly by URL in templates
