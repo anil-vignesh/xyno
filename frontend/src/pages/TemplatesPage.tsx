@@ -265,10 +265,10 @@ export default function TemplatesPage() {
                         >
                           <Copy className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => navigate(`/templates/${template.id}/edit`)}>
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/templates/${template.id}/edit`)} title="Edit">
                           <Pencil className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(template.id)}>
+                        <Button size="sm" variant="destructive" onClick={() => handleDelete(template.id)} title="Delete">
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
