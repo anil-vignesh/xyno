@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowUpCircle, Mail, Pencil, Plus, Settings, Trash2, Upload } from "lucide-react";
+import { ArrowUpCircle, Copy, Eye, Mail, Moon, Pencil, Plus, Settings, Sun, Trash2, Upload } from "lucide-react";
 import { templatesApi } from "@/services/templates";
 import type { EmailTemplate, Placeholder } from "@/types";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
@@ -41,6 +41,15 @@ export default function TemplatesPage() {
   const [editPlaceholders, setEditPlaceholders] = useState<Placeholder[]>([]);
   const [savingPlaceholders, setSavingPlaceholders] = useState(false);
 
+  // Preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null);
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [previewSubject, setPreviewSubject] = useState("");
+  const [previewDark, setPreviewDark] = useState(false);
+  const [previewContext, setPreviewContext] = useState<Record<string, string>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   const fetchTemplates = async () => {
     try {
       const { data } = await templatesApi.list();
@@ -64,6 +73,16 @@ export default function TemplatesPage() {
       fetchTemplates();
     } catch {
       toast.error("Failed to delete template");
+    }
+  };
+
+  const handleDuplicate = async (id: number) => {
+    try {
+      await templatesApi.duplicate(id);
+      toast.success("Template duplicated");
+      fetchTemplates();
+    } catch {
+      toast.error("Failed to duplicate template");
     }
   };
 
@@ -123,6 +142,33 @@ export default function TemplatesPage() {
     } finally {
       setSavingPlaceholders(false);
     }
+  };
+
+  const loadPreview = useCallback(async (template: EmailTemplate, context: Record<string, string>) => {
+    setPreviewLoading(true);
+    try {
+      const { data } = await templatesApi.preview(template.id, context);
+      setPreviewHtml(data.html);
+      setPreviewSubject(data.subject);
+    } catch {
+      toast.error("Failed to load preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
+
+  const openPreview = (template: EmailTemplate) => {
+    const initialContext: Record<string, string> = {};
+    for (const p of template.placeholders) {
+      initialContext[p.name] = p.default_value || "";
+    }
+    setPreviewTemplate(template);
+    setPreviewContext(initialContext);
+    setPreviewDark(false);
+    setPreviewHtml("");
+    setPreviewSubject("");
+    setPreviewOpen(true);
+    loadPreview(template, initialContext);
   };
 
   return (
@@ -201,6 +247,22 @@ export default function TemplatesPage() {
                         >
                           <Settings className="h-3 w-3" />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openPreview(template)}
+                          title="Preview"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDuplicate(template.id)}
+                          title="Duplicate"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => navigate(`/templates/${template.id}/edit`)}>
                           <Pencil className="h-3 w-3" />
                         </Button>
@@ -265,6 +327,7 @@ export default function TemplatesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Upload HTML Dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent className="max-h-[85vh] flex flex-col">
           <DialogHeader>
@@ -318,6 +381,86 @@ export default function TemplatesPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
+            <DialogTitle>Preview: {previewTemplate?.name}</DialogTitle>
+            {previewSubject && (
+              <DialogDescription>Subject: {previewSubject}</DialogDescription>
+            )}
+          </DialogHeader>
+
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 px-6 pb-3 border-b shrink-0">
+            <Button
+              size="sm"
+              variant={previewDark ? "default" : "outline"}
+              onClick={() => setPreviewDark((d) => !d)}
+              className="gap-1.5"
+            >
+              {previewDark ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+              {previewDark ? "Dark Mode" : "Light Mode"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => previewTemplate && loadPreview(previewTemplate, previewContext)}
+              disabled={previewLoading}
+            >
+              {previewLoading ? "Loading..." : "Refresh"}
+            </Button>
+          </div>
+
+          {/* Placeholder context inputs */}
+          {previewTemplate && previewTemplate.placeholders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
+              <span className="text-xs font-medium text-muted-foreground shrink-0">Preview values:</span>
+              {previewTemplate.placeholders.map((p) => (
+                <div key={p.name} className="flex items-center gap-1">
+                  <code className="text-xs text-muted-foreground">{`{{${p.name}}}`}</code>
+                  <Input
+                    value={previewContext[p.name] ?? ""}
+                    onChange={(e) =>
+                      setPreviewContext((prev) => ({ ...prev, [p.name]: e.target.value }))
+                    }
+                    className="h-7 w-28 text-xs"
+                    placeholder={p.default_value || p.name}
+                  />
+                </div>
+              ))}
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => previewTemplate && loadPreview(previewTemplate, previewContext)}
+                disabled={previewLoading}
+              >
+                Apply
+              </Button>
+            </div>
+          )}
+
+          {/* iframe */}
+          <div className="flex-1 min-h-0 px-6 pb-6 pt-3">
+            <div className="w-full h-full rounded border overflow-hidden bg-white">
+              {previewLoading && !previewHtml ? (
+                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                  Loading preview...
+                </div>
+              ) : (
+                <iframe
+                  srcDoc={previewHtml}
+                  sandbox="allow-same-origin"
+                  className="w-full h-full"
+                  style={previewDark ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}
+                  title="Email preview"
+                />
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
