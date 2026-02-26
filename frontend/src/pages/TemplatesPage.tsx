@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowUpCircle, Copy, Eye, Mail, Moon, Pencil, Plus, Settings, Sun, Trash2, Upload } from "lucide-react";
+import { ArrowUpCircle, Copy, Eye, Mail, Monitor, Moon, Pencil, Plus, Settings, Smartphone, Sun, Tablet, Trash2, Upload } from "lucide-react";
 import { templatesApi } from "@/services/templates";
 import type { EmailTemplate, Placeholder } from "@/types";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
@@ -49,6 +49,7 @@ export default function TemplatesPage() {
   const [previewDark, setPreviewDark] = useState(false);
   const [previewContext, setPreviewContext] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<"mobile" | "tablet" | "desktop">("desktop");
 
   const fetchTemplates = async () => {
     try {
@@ -165,6 +166,7 @@ export default function TemplatesPage() {
     setPreviewTemplate(template);
     setPreviewContext(initialContext);
     setPreviewDark(false);
+    setPreviewDevice("desktop");
     setPreviewHtml("");
     setPreviewSubject("");
     setPreviewOpen(true);
@@ -395,7 +397,32 @@ export default function TemplatesPage() {
           </DialogHeader>
 
           {/* Toolbar */}
-          <div className="flex items-center gap-2 px-6 pb-3 border-b shrink-0">
+          <div className="flex items-center gap-3 px-6 pb-3 border-b shrink-0">
+            {/* Device switcher */}
+            <div className="flex items-center rounded-md border overflow-hidden">
+              {(
+                [
+                  { key: "mobile", icon: Smartphone, label: "Mobile (375px)" },
+                  { key: "tablet", icon: Tablet, label: "Tablet (768px)" },
+                  { key: "desktop", icon: Monitor, label: "Desktop" },
+                ] as const
+              ).map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  title={label}
+                  onClick={() => setPreviewDevice(key)}
+                  className={`flex items-center justify-center px-3 py-1.5 transition-colors ${
+                    previewDevice === key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              ))}
+            </div>
+
+            {/* Dark mode toggle */}
             <Button
               size="sm"
               variant={previewDark ? "default" : "outline"}
@@ -403,7 +430,7 @@ export default function TemplatesPage() {
               className="gap-1.5"
             >
               {previewDark ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-              {previewDark ? "Dark Mode" : "Light Mode"}
+              {previewDark ? "Dark" : "Light"}
             </Button>
             <Button
               size="sm"
@@ -444,8 +471,18 @@ export default function TemplatesPage() {
           )}
 
           {/* iframe */}
-          <div className="flex-1 min-h-0 px-6 pb-6 pt-3">
-            <div className="w-full h-full rounded border overflow-hidden bg-white">
+          <div className="flex-1 min-h-0 px-6 pb-6 pt-3 overflow-auto">
+            <div
+              className="h-full mx-auto rounded border overflow-hidden bg-white transition-all duration-200"
+              style={{
+                width:
+                  previewDevice === "mobile"
+                    ? "375px"
+                    : previewDevice === "tablet"
+                    ? "768px"
+                    : "100%",
+              }}
+            >
               {previewLoading && !previewHtml ? (
                 <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
                   Loading preview...
