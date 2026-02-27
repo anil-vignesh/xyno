@@ -147,8 +147,12 @@ export default function TemplatesPage() {
 
   const loadPreview = useCallback(async (template: EmailTemplate, context: Record<string, string>) => {
     setPreviewLoading(true);
+    // Sanitize context: ensure all values are strings (guard against null/undefined from API)
+    const sanitizedContext: Record<string, string> = Object.fromEntries(
+      Object.entries(context).map(([k, v]) => [k, v ?? ""])
+    );
     try {
-      const { data } = await templatesApi.preview(template.id, context);
+      const { data } = await templatesApi.preview(template.id, sanitizedContext);
       setPreviewHtml(data.html);
       setPreviewSubject(data.subject);
     } catch {

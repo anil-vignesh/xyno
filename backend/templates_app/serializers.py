@@ -37,7 +37,15 @@ class PlaceholderDefaultsSerializer(serializers.Serializer):
 
 
 class TemplatePreviewSerializer(serializers.Serializer):
-    context = serializers.DictField(child=serializers.CharField(), required=False, default=dict)
+    context = serializers.DictField(
+        child=serializers.CharField(allow_null=True, allow_blank=True, default=""),
+        required=False,
+        default=dict,
+    )
+
+    def validate_context(self, value):
+        # Coerce any null values to empty strings
+        return {k: (v or "") for k, v in value.items()}
 
 
 class TemplateUploadSerializer(serializers.Serializer):
