@@ -50,6 +50,7 @@ export default function TemplatesPage() {
   const [previewContext, setPreviewContext] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<"mobile" | "tablet" | "desktop">("desktop");
+  const [previewPlaceholdersOpen, setPreviewPlaceholdersOpen] = useState(false);
 
   const fetchTemplates = async () => {
     try {
@@ -153,7 +154,12 @@ export default function TemplatesPage() {
     );
     try {
       const { data } = await templatesApi.preview(template.id, sanitizedContext);
-      setPreviewHtml(data.html);
+      // Wrap in a centering shell so the email (typically 600px) is centered with a grey bg
+      const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        html,body{margin:0;padding:0;background:#f0f0f0;}
+        .email-shell{max-width:660px;margin:0 auto;padding:20px 0;}
+      </style></head><body><div class="email-shell">${data.html}</div></body></html>`;
+      setPreviewHtml(wrappedHtml);
       setPreviewSubject(data.subject);
     } catch {
       toast.error("Failed to load preview");
@@ -171,6 +177,7 @@ export default function TemplatesPage() {
     setPreviewContext(initialContext);
     setPreviewDark(false);
     setPreviewDevice("desktop");
+    setPreviewPlaceholdersOpen(false);
     setPreviewHtml("");
     setPreviewSubject("");
     setPreviewOpen(true);
@@ -392,7 +399,7 @@ export default function TemplatesPage() {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col gap-0 p-0">
+        <DialogContent className="sm:max-w-[780px] w-[780px] h-[90vh] flex flex-col gap-0 p-0">
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>Preview: {previewTemplate?.name}</DialogTitle>
             {previewSubject && (
@@ -448,36 +455,46 @@ export default function TemplatesPage() {
 
           {/* Placeholder context inputs */}
           {previewTemplate && previewTemplate.placeholders.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-muted/30 shrink-0">
-              <span className="text-xs font-medium text-muted-foreground shrink-0">Preview values:</span>
-              {previewTemplate.placeholders.map((p) => (
-                <div key={p.name} className="flex items-center gap-1">
-                  <code className="text-xs text-muted-foreground">{`{{${p.name}}}`}</code>
-                  <Input
-                    value={previewContext[p.name] ?? ""}
-                    onChange={(e) =>
-                      setPreviewContext((prev) => ({ ...prev, [p.name]: e.target.value }))
-                    }
-                    className="h-7 w-28 text-xs"
-                    placeholder={p.default_value || p.name}
-                  />
-                </div>
-              ))}
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => previewTemplate && loadPreview(previewTemplate, previewContext)}
-                disabled={previewLoading}
+            <div className="border-b shrink-0">
+              <button
+                className="flex items-center justify-between w-full px-6 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/40 transition-colors"
+                onClick={() => setPreviewPlaceholdersOpen((o) => !o)}
               >
-                Apply
-              </Button>
+                <span>Preview values ({previewTemplate.placeholders.length} variables)</span>
+                <span>{previewPlaceholdersOpen ? "▲ Hide" : "▼ Show"}</span>
+              </button>
+              {previewPlaceholdersOpen && (
+                <div className="px-6 pb-4 pt-1 bg-muted/20 flex flex-col gap-2">
+                  {previewTemplate.placeholders.map((p) => (
+                    <div key={p.name} className="flex items-center gap-3">
+                      <code className="text-xs text-muted-foreground w-40 shrink-0">{`{{${p.name}}}`}</code>
+                      <Input
+                        value={previewContext[p.name] ?? ""}
+                        onChange={(e) =>
+                          setPreviewContext((prev) => ({ ...prev, [p.name]: e.target.value }))
+                        }
+                        className="h-7 text-xs"
+                        placeholder={p.default_value || p.name}
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs self-end mt-1"
+                    onClick={() => previewTemplate && loadPreview(previewTemplate, previewContext)}
+                    disabled={previewLoading}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
           {/* iframe */}
-          <div className="flex-1 min-h-0 px-6 pb-6 pt-3 overflow-auto">
+          <div className="flex-1 min-h-0 px-6 pb-6 pt-3 overflow-auto bg-[#f0f0f0]">
             <div
-              className="h-full mx-auto rounded border overflow-hidden bg-white transition-all duration-200"
+              className="mx-auto transition-all duration-200"
               style={{
                 width:
                   previewDevice === "mobile"
@@ -488,15 +505,20 @@ export default function TemplatesPage() {
               }}
             >
               {previewLoading && !previewHtml ? (
-                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
                   Loading preview...
                 </div>
               ) : (
                 <iframe
                   srcDoc={previewHtml}
                   sandbox="allow-same-origin"
-                  className="w-full h-full"
-                  style={previewDark ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}
+                  className="w-full"
+                  style={{
+                    height: "75vh",
+                    border: "none",
+                    display: "block",
+                    ...(previewDark ? { filter: "invert(1) hue-rotate(180deg)" } : {}),
+                  }}
                   title="Email preview"
                 />
               )}
