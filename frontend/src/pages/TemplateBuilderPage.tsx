@@ -85,11 +85,62 @@ export default function TemplateBuilderPage() {
     }
   }, [id, isEditing]);
 
+  // Register brand components as draggable GrapeJS blocks
+  const registerBrandBlocks = (editorInstance: Editor, components: BrandComponent[]) => {
+    for (const comp of components) {
+      editorInstance.BlockManager.add(`brand-${comp.id}`, {
+        label: comp.name,
+        category: comp.category_display,
+        content: comp.html_content,
+        ...(comp.thumbnail_url ? { media: `<img src="${comp.thumbnail_url}" style="width:100%" />` } : {}),
+      });
+    }
+  };
+
   // Called when GrapeJS editor is ready
   const onEditorReady = (editorInstance: Editor) => {
     editorRef.current = editorInstance;
     setEditor(editorInstance);
     setEditorReady(true);
+
+    // Feature 2: Add "Link URL" trait to image components so users can wrap
+    // images in anchor tags directly from the traits panel.
+    const imageType = editorInstance.DomComponents.getType('image');
+    if (imageType) {
+      editorInstance.DomComponents.addType('image', {
+        model: {
+          defaults: {
+            ...(imageType.model as any).prototype.defaults,
+            traits: [
+              ...((imageType.model as any).prototype.defaults?.traits ?? []),
+              {
+                type: 'text',
+                label: 'Link URL',
+                name: 'href',
+                placeholder: 'https://example.com',
+              },
+              {
+                type: 'select',
+                label: 'Open in',
+                name: 'target',
+                options: [
+                  { id: '', label: 'Same tab' },
+                  { id: '_blank', label: 'New tab' },
+                ],
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    // Feature 1: Load brand components and register them as draggable blocks
+    brandComponentsApi.list().then(({ data }) => {
+      setBrandComponents(data.results);
+      registerBrandBlocks(editorInstance, data.results);
+    }).catch(() => {
+      // Non-critical — brand blocks won't appear but editor still works
+    });
 
     // Override uploadFile on the AssetManager AFTER all plugins have run.
     // Setting it in editorOptions is unreliable because grapesjs-preset-newsletter
@@ -182,17 +233,19 @@ export default function TemplateBuilderPage() {
     { value: "other", label: "Other" },
   ];
 
-  // Fetch brand components when library panel opens or category changes
+  // Fetch brand components when the category filter changes in the side panel.
+  // The initial full load happens in onEditorReady to register draggable blocks.
   useEffect(() => {
-    if (showBrandLibrary) {
-      setBrandLoading(true);
-      brandComponentsApi
-        .list(brandCategory || undefined)
-        .then(({ data }) => setBrandComponents(data.results))
-        .catch(() => toast.error("Failed to load brand components"))
-        .finally(() => setBrandLoading(false));
-    }
-  }, [showBrandLibrary, brandCategory]);
+    if (!showBrandLibrary) return;
+    // If no category filter and we already have components, no need to refetch
+    if (!brandCategory && brandComponents.length > 0) return;
+    setBrandLoading(true);
+    brandComponentsApi
+      .list(brandCategory || undefined)
+      .then(({ data }) => setBrandComponents(data.results))
+      .catch(() => toast.error("Failed to load brand components"))
+      .finally(() => setBrandLoading(false));
+  }, [showBrandLibrary, brandCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Insert a brand component's HTML into the editor
   const insertBrandComponent = async (componentId: number) => {

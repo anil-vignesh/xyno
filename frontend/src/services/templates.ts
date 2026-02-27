@@ -21,4 +21,6 @@ export const templatesApi = {
     }),
   promote: (id: number | string) =>
     api.post<EmailTemplate>(`/templates/${id}/promote/`),
+  duplicate: (id: number) =>
+    api.post<EmailTemplate>(`/templates/${id}/duplicate/`),
 };
