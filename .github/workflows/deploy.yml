@@ -1,0 +1,65 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::341962795771:role/xyno-github-actions-deploy
+          aws-region: ap-south-1
+
+      - name: Deploy via SSM
+        id: ssm
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids i-0220633d44187cf72 \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=[
+              "/usr/local/bin/aws ssm get-parameter --name /xyno/prod/env --with-decryption --region ap-south-1 --query Parameter.Value --output text > /home/ubuntu/xyno/.env",
+              "chown ubuntu:ubuntu /home/ubuntu/xyno/.env && chmod 600 /home/ubuntu/xyno/.env",
+              "sudo -u ubuntu bash -c \"cd /home/ubuntu/xyno && git pull origin main && docker compose -f docker-compose.prod.yml up --build -d && docker compose -f docker-compose.prod.yml exec -T backend python manage.py migrate --noinput\""
+            ]' \
+            --timeout-seconds 300 \
+            --query 'Command.CommandId' \
+            --output text)
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for deploy to complete
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id ${{ steps.ssm.outputs.command_id }} \
+              --instance-id i-0220633d44187cf72 \
+              --query 'Status' --output text)
+            echo "[$i/60] Status: $STATUS"
+            if [ "$STATUS" = "Success" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              echo "Deploy failed with status: $STATUS"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for deploy"
+          exit 1
+
+      - name: Print deploy output
+        if: always()
+        run: |
+          aws ssm get-command-invocation \
+            --command-id ${{ steps.ssm.outputs.command_id }} \
+            --instance-id i-0220633d44187cf72 \
+            --query '[StandardOutputContent, StandardErrorContent]' \
+            --output text

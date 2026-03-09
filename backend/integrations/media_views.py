@@ -1,13 +1,13 @@
 import logging
 import uuid
 
+import boto3
+from django.conf import settings
+from rest_framework import status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
-
-from .models import PlatformS3Config
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,9 @@ class MediaUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        s3 = PlatformS3Config.objects.filter(is_active=True).first()
-        if not s3:
+        bucket_name = getattr(settings, 'S3_MEDIA_BUCKET_NAME', '')
+        region = getattr(settings, 'S3_MEDIA_REGION', '')
+        if not bucket_name or not region:
             return Response(
                 {'error': 'S3 storage is not configured. Contact your administrator.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -47,13 +48,21 @@ class MediaUploadView(APIView):
         ext = file.name.rsplit('.', 1)[-1].lower() if '.' in file.name else 'jpg'
         key = f'{org_id}/images/{uuid.uuid4().hex}.{ext}'
 
+        client = boto3.client('s3', region_name=region)
+
         try:
-            url = s3.upload_file(file, key)
+            client.upload_fileobj(
+                file,
+                bucket_name,
+                key,
+            )
         except Exception as exc:
             logger.error(f'S3 upload failed for org {org_id}: {exc}')
             return Response(
                 {'error': 'Upload failed. Please try again.'},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+        url = f'https://{bucket_name}.s3.{region}.amazonaws.com/{key}'
 
         return Response({'url': url}, status=status.HTTP_201_CREATED)

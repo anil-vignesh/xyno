@@ -110,6 +110,36 @@ class EmailTemplateViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED,
             )
 
+    @action(detail=True, methods=['post'])
+    def duplicate(self, request, pk=None):
+        """Create a copy of a template with a unique name."""
+        template = self.get_object()
+        env = get_environment_from_request(request)
+        base_name = f"{template.name} (Copy)"
+        name = base_name
+        counter = 2
+        while EmailTemplate.objects.filter(
+            user__organization=request.user.organization,
+            name=name,
+            environment=env,
+        ).exists():
+            name = f"{base_name} {counter}"
+            counter += 1
+        new_template = EmailTemplate.objects.create(
+            name=name,
+            subject=template.subject,
+            html_content=template.html_content,
+            design_json=template.design_json,
+            placeholders=list(template.placeholders),
+            user=request.user,
+            environment=env,
+            is_active=template.is_active,
+        )
+        return Response(
+            EmailTemplateSerializer(new_template).data,
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=False, methods=['post'], url_path='upload-html')
     def upload_html(self, request):
         serializer = TemplateUploadSerializer(data=request.data)

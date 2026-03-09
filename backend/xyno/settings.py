@@ -35,8 +35,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -137,6 +137,7 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'authorization',
     'content-type',
+    'content-disposition',
     'x-environment',
 ]
 
@@ -162,3 +163,13 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 
 # Encryption
 FERNET_KEY = config('FERNET_KEY', default='')
+
+# S3 media storage (org images, etc.)
+S3_MEDIA_BUCKET_NAME = config('S3_MEDIA_BUCKET_NAME', default='')
+S3_MEDIA_REGION = config('S3_MEDIA_REGION', default='us-east-1')
+
+# Platform SES (system emails: invites, password reset, etc.)
+PLATFORM_SES_ACCESS_KEY = config('PLATFORM_SES_ACCESS_KEY', default='')
+PLATFORM_SES_SECRET_KEY = config('PLATFORM_SES_SECRET_KEY', default='')
+PLATFORM_SES_REGION = config('PLATFORM_SES_REGION', default='us-east-1')
+PLATFORM_SES_SENDER_EMAIL = config('PLATFORM_SES_SENDER_EMAIL', default='')

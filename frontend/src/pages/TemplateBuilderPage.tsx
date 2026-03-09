@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import grapesjs, { type Editor } from "grapesjs";
@@ -21,6 +21,32 @@ function isUnlayerDesign(json: Record<string, unknown>): boolean {
   return !!json.body && !!json.counters;
 }
 
+/**
+ * Find all base64 data-URLs in a string, upload each to S3 via the media API,
+ * and replace them with the returned S3 URLs.  Used as a save-time fallback for
+ * images that bypassed the asset-manager upload (e.g. direct canvas drops).
+ */
+async function replaceBase64WithS3(content: string): Promise<string> {
+  const base64Pattern = /data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/]+=*/g;
+  const uniqueMatches = [...new Set(content.match(base64Pattern) ?? [])];
+  if (!uniqueMatches.length) return content;
+
+  let result = content;
+  for (const dataUrl of uniqueMatches) {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext = (blob.type.split('/')[1] ?? 'jpg').split('+')[0];
+      const file = new File([blob], `image.${ext}`, { type: blob.type });
+      const url = await mediaApi.upload(file);
+      result = result.split(dataUrl).join(url);
+    } catch {
+      // leave as base64 if upload fails
+    }
+  }
+  return result;
+}
+
 export default function TemplateBuilderPage() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const { id } = useParams();
@@ -31,6 +57,7 @@ export default function TemplateBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const designLoadedRef = useRef(false);
+  const editorRef = useRef<Editor | null>(null);
   const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
   const [newPlaceholderName, setNewPlaceholderName] = useState("");
   const [showPlaceholders, setShowPlaceholders] = useState(false);
@@ -58,10 +85,110 @@ export default function TemplateBuilderPage() {
     }
   }, [id, isEditing]);
 
+  // Register brand components as draggable GrapeJS blocks
+  const registerBrandBlocks = (editorInstance: Editor, components: BrandComponent[]) => {
+    for (const comp of components) {
+      editorInstance.BlockManager.add(`brand-${comp.id}`, {
+        label: comp.name,
+        category: comp.category_display,
+        content: comp.html_content,
+        ...(comp.thumbnail_url ? { media: `<img src="${comp.thumbnail_url}" style="width:100%" />` } : {}),
+      });
+    }
+  };
+
   // Called when GrapeJS editor is ready
   const onEditorReady = (editorInstance: Editor) => {
+    editorRef.current = editorInstance;
     setEditor(editorInstance);
     setEditorReady(true);
+
+    // Feature 2: Add "Link URL" trait to image components so users can wrap
+    // images in anchor tags directly from the traits panel.
+    const imageType = editorInstance.DomComponents.getType('image');
+    if (imageType) {
+      editorInstance.DomComponents.addType('image', {
+        model: {
+          defaults: {
+            ...(imageType.model as any).prototype.defaults,
+            traits: [
+              ...((imageType.model as any).prototype.defaults?.traits ?? []),
+              {
+                type: 'text',
+                label: 'Link URL',
+                name: 'href',
+                placeholder: 'https://example.com',
+              },
+              {
+                type: 'select',
+                label: 'Open in',
+                name: 'target',
+                options: [
+                  { id: '', label: 'Same tab' },
+                  { id: '_blank', label: 'New tab' },
+                ],
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    // Feature 1: Load brand components and register them as draggable blocks
+    brandComponentsApi.list().then(({ data }) => {
+      setBrandComponents(data.results);
+      registerBrandBlocks(editorInstance, data.results);
+    }).catch(() => {
+      // Non-critical — brand blocks won't appear but editor still works
+    });
+
+    // Override uploadFile on the AssetManager AFTER all plugins have run.
+    // Setting it in editorOptions is unreliable because grapesjs-preset-newsletter
+    // reconfigures the asset manager during its own init, wiping out our handler.
+    (editorInstance.AssetManager as any).config.uploadFile = async (e: Event) => {
+      const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
+      const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
+      if (!files?.length) return;
+
+      const uploads = Array.from(files).map(async (file) => {
+        const toastId = toast.loading(`Uploading ${file.name}…`);
+        try {
+          const url = await mediaApi.upload(file);
+          editorInstance.AssetManager.add({ src: url, type: 'image' });
+          toast.success(`${file.name} uploaded`, { id: toastId });
+        } catch {
+          toast.error(`Failed to upload ${file.name}`, { id: toastId });
+        }
+      });
+
+      await Promise.all(uploads);
+    };
+
+    // When a file is dropped directly onto an image component on the canvas,
+    // GrapeJS embeds it as a base64 data URL, bypassing the asset manager.
+    // Intercept that here and upload to S3 immediately.
+    let handlingBase64 = false;
+    editorInstance.on('component:update', async (component: any) => {
+      if (handlingBase64) return;
+      const src = (component.getAttributes?.()?.src ?? '') as string;
+      if (!src.startsWith('data:image/')) return;
+
+      handlingBase64 = true;
+      const toastId = toast.loading('Uploading image…');
+      try {
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const ext = (blob.type.split('/')[1] ?? 'jpg').split('+')[0];
+        const file = new File([blob], `image.${ext}`, { type: blob.type });
+        const url = await mediaApi.upload(file);
+        component.addAttributes({ src: url });
+        toast.success('Image uploaded', { id: toastId });
+      } catch {
+        toast.error('Failed to upload image', { id: toastId });
+      } finally {
+        handlingBase64 = false;
+      }
+    });
 
     if (isEditing && !designLoadedRef.current) {
       templatesApi.get(id!).then(({ data }) => {
@@ -86,6 +213,16 @@ export default function TemplateBuilderPage() {
     }
   };
 
+  const editorOptions = useMemo(() => ({
+    height: "100%",
+    storageManager: false,
+    pluginsOpts: {
+      [newsletterPlugin as unknown as string]: {
+        inlineCss: true,
+      },
+    },
+  }), []);
+
   // Brand component categories for the library panel
   const brandCategories = [
     { value: "", label: "All" },
@@ -96,24 +233,31 @@ export default function TemplateBuilderPage() {
     { value: "other", label: "Other" },
   ];
 
-  // Fetch brand components when library panel opens or category changes
+  // Fetch brand components when the category filter changes in the side panel.
+  // The initial full load happens in onEditorReady to register draggable blocks.
   useEffect(() => {
-    if (showBrandLibrary) {
-      setBrandLoading(true);
-      brandComponentsApi
-        .list(brandCategory || undefined)
-        .then(({ data }) => setBrandComponents(data.results))
-        .catch(() => toast.error("Failed to load brand components"))
-        .finally(() => setBrandLoading(false));
-    }
-  }, [showBrandLibrary, brandCategory]);
+    if (!showBrandLibrary) return;
+    // If no category filter and we already have components, no need to refetch
+    if (!brandCategory && brandComponents.length > 0) return;
+    setBrandLoading(true);
+    brandComponentsApi
+      .list(brandCategory || undefined)
+      .then(({ data }) => setBrandComponents(data.results))
+      .catch(() => toast.error("Failed to load brand components"))
+      .finally(() => setBrandLoading(false));
+  }, [showBrandLibrary, brandCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Insert a brand component's HTML into the editor
-  const insertBrandComponent = async (componentId: number) => {
+  const insertBrandComponent = async (componentId: number, category?: string) => {
     try {
       const { data } = await brandComponentsApi.get(componentId);
       if (!editor) return;
-      editor.addComponents(data.html_content);
+      const wrapper = editor.getWrapper();
+      if (category === "header" && wrapper) {
+        wrapper.prepend(data.html_content);
+      } else {
+        editor.addComponents(data.html_content);
+      }
       toast.success(`"${data.name}" inserted`);
     } catch {
       toast.error("Failed to insert component");
@@ -141,7 +285,7 @@ export default function TemplateBuilderPage() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!templateName.trim()) {
       toast.error("Template name is required");
       return;
@@ -154,54 +298,56 @@ export default function TemplateBuilderPage() {
 
     setSaving(true);
 
-    const html = editor.getHtml();
-    const css = editor.getCss();
+    try {
+      const html = editor.getHtml();
+      const css = editor.getCss();
 
-    // GrapeJS getHtml() may return content that already contains <body>/<html> tags
-    // (e.g. imported HTML templates). Avoid double-wrapping.
-    let rawHtml: string;
-    if (html.includes("<body") || html.includes("<html")) {
-      // Already a full document — just inject CSS into the <head> or before </head>
-      if (html.includes("</head>")) {
-        rawHtml = html.replace("</head>", `<style>${css}</style></head>`);
-      } else if (html.includes("<body")) {
-        rawHtml = html.replace(/<body/, `<head><style>${css}</style></head><body`);
+      // GrapeJS getHtml() may return content that already contains <body>/<html> tags
+      // (e.g. imported HTML templates). Avoid double-wrapping.
+      let rawHtml: string;
+      if (html.includes("<body") || html.includes("<html")) {
+        if (html.includes("</head>")) {
+          rawHtml = html.replace("</head>", `<style>${css}</style></head>`);
+        } else if (html.includes("<body")) {
+          rawHtml = html.replace(/<body/, `<head><style>${css}</style></head><body`);
+        } else {
+          rawHtml = `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}</body></html>`;
+        }
       } else {
         rawHtml = `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}</body></html>`;
       }
-    } else {
-      rawHtml = `<!DOCTYPE html><html><head><style>${css}</style></head><body>${html}</body></html>`;
+
+      // Inline CSS into style attributes so email clients (Gmail etc.) render correctly
+      let fullHtml = juice(rawHtml) as string;
+      let projectDataStr = JSON.stringify(editor.getProjectData());
+
+      // Safety net: upload any remaining base64 images (e.g. pasted images that
+      // bypassed the component:update listener) to S3 before saving.
+      fullHtml = await replaceBase64WithS3(fullHtml);
+      projectDataStr = await replaceBase64WithS3(projectDataStr);
+
+      const payload = {
+        name: templateName,
+        subject: templateSubject,
+        html_content: fullHtml,
+        design_json: JSON.parse(projectDataStr) as Record<string, unknown>,
+      };
+
+      const res = await (isEditing
+        ? templatesApi.update(id!, payload)
+        : templatesApi.create(payload));
+
+      if (placeholders.length > 0) {
+        await templatesApi.updatePlaceholders(res.data.id, placeholders);
+      }
+
+      toast.success(isEditing ? "Template updated" : "Template created");
+      navigate("/templates");
+    } catch {
+      toast.error("Failed to save template");
+    } finally {
+      setSaving(false);
     }
-
-    // Inline CSS into style attributes so email clients (Gmail etc.) render correctly
-    const fullHtml = juice(rawHtml) as string;
-    const projectData = editor.getProjectData();
-
-    const payload = {
-      name: templateName,
-      subject: templateSubject,
-      html_content: fullHtml,
-      design_json: projectData as Record<string, unknown>,
-    };
-
-    const promise = isEditing
-      ? templatesApi.update(id!, payload)
-      : templatesApi.create(payload);
-
-    promise
-      .then((res) => {
-        if (placeholders.length > 0) {
-          return templatesApi.updatePlaceholders(res.data.id, placeholders);
-        }
-      })
-      .then(() => {
-        toast.success(isEditing ? "Template updated" : "Template created");
-        navigate("/templates");
-      })
-      .catch(() => {
-        toast.error("Failed to save template");
-      })
-      .finally(() => setSaving(false));
   };
 
   return (
@@ -280,31 +426,7 @@ export default function TemplateBuilderPage() {
             grapesjs={grapesjs}
             onReady={onEditorReady}
             plugins={[newsletterPlugin]}
-            options={{
-              height: "100%",
-              storageManager: false,
-              pluginsOpts: {
-                [newsletterPlugin as unknown as string]: {
-                  inlineCss: true,
-                },
-              },
-              assetManager: {
-                uploadFile: async (e: DragEvent | Event) => {
-                  const input = e as Event & { dataTransfer?: DataTransfer; target?: HTMLInputElement };
-                  const files = input.dataTransfer?.files ?? (input.target as HTMLInputElement)?.files;
-                  if (!files?.length || !editor) return;
-                  const uploads = Array.from(files).map(async (file) => {
-                    try {
-                      const url = await mediaApi.upload(file);
-                      editor.AssetManager.add({ src: url, type: 'image' });
-                    } catch {
-                      toast.error(`Failed to upload ${file.name}`);
-                    }
-                  });
-                  await Promise.all(uploads);
-                },
-              },
-            }}
+            options={editorOptions}
           />
         </div>
 
@@ -421,7 +543,7 @@ export default function TemplateBuilderPage() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs shrink-0 ml-2"
-                          onClick={() => insertBrandComponent(comp.id)}
+                          onClick={() => insertBrandComponent(comp.id, comp.category)}
                         >
                           Insert
                         </Button>
