@@ -5,14 +5,14 @@ test.describe("API Keys", () => {
   test("empty state shown when no keys", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/api-keys");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.getByText("No API keys yet.").first()).toBeVisible({ timeout: 8000 });
   });
 
   test("create dialog shows environment selector", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/api-keys");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await page.getByRole("button", { name: "Create API Key" }).click();
     await expect(page.locator('[role="dialog"]')).toBeVisible();
     await expect(page.getByText("Environment").first()).toBeVisible();
@@ -22,7 +22,7 @@ test.describe("API Keys", () => {
   test("create sandbox key and raw key is shown", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/api-keys");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await page.getByRole("button", { name: "Create API Key" }).click();
     await page.fill('input[placeholder*="Production Backend"]', "My Sandbox Key");
     await page.getByRole("button", { name: "Create" }).last().click();
@@ -40,7 +40,7 @@ test.describe("API Keys", () => {
     });
 
     await page.goto("/api-keys");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.getByText("production").first()).toBeVisible();
   });
 });

@@ -5,7 +5,7 @@ test.describe("Forgot Password", () => {
   test("forgot password page renders correctly", async ({ page }) => {
     await fixDockerApiRouting(page);
     await page.goto("/forgot-password");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toHaveText("Send reset link");
@@ -22,7 +22,7 @@ test.describe("Forgot Password", () => {
       ),
       (async () => {
         await page.goto("/forgot-password");
-        await page.waitForLoadState("networkidle");
+        await page.waitForLoadState("load");
         await page.fill("#email", "anil@eximpe.com");
         await page.click('button[type="submit"]');
       })(),

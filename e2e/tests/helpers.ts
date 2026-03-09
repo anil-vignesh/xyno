@@ -44,7 +44,7 @@ export async function registerAndLogin(page: Page, suffix = Date.now().toString(
 
   await page.goto("/dashboard");
   await page.waitForURL("**/dashboard", { timeout: 20_000 });
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("load");
 
   return { username, email, password };
 }

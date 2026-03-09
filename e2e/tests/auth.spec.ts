@@ -4,7 +4,7 @@ import { registerAndLogin, fixDockerApiRouting } from "./helpers";
 test.describe("Authentication", () => {
   test("login page renders", async ({ page }) => {
     await page.goto("/login");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.getByText("Xyno").first()).toBeVisible();
     await expect(page.locator("#username")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible();
@@ -14,7 +14,7 @@ test.describe("Authentication", () => {
     await fixDockerApiRouting(page);
     const suffix = Date.now().toString();
     await page.goto("/register");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await page.fill("#username", `e2etest_${suffix}`);
     await page.fill("#email", `e2e_${suffix}@example.com`);
     await page.fill("#password", "testpass123!");
@@ -26,7 +26,7 @@ test.describe("Authentication", () => {
 
   test("login with wrong password shows error", async ({ page }) => {
     await page.goto("/login");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await page.fill("#username", "nonexistent");
     await page.fill("#password", "wrongpass");
     await page.click('button[type="submit"]');

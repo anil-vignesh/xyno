@@ -34,7 +34,7 @@ test.describe("Templates", () => {
     });
 
     await page.goto("/templates");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     // ArrowUpCircle promote button should be visible in sandbox
     await expect(page.locator('[title="Promote to Production"]').first()).toBeVisible();
   });
@@ -43,7 +43,7 @@ test.describe("Templates", () => {
     await registerAndLogin(page);
     await page.goto("/templates");
     await switchEnvironment(page, "production");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.locator('[title="Promote to Production"]')).toHaveCount(0);
   });
 
@@ -64,7 +64,7 @@ test.describe("Templates", () => {
     });
 
     await page.goto("/templates");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     // Handle confirm dialog
     page.once("dialog", (d) => d.accept());
@@ -75,7 +75,7 @@ test.describe("Templates", () => {
 
     // Switch to production and verify the template appears
     await switchEnvironment(page, "production");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.locator("text=Promote Me")).toBeVisible();
   });
 });

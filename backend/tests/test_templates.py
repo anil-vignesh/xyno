@@ -135,6 +135,63 @@ class TestTemplatePromote:
 
 
 @pytest.mark.django_db
+class TestTemplateDuplicate:
+    def test_duplicate_creates_copy_with_copy_suffix(self, client, sandbox_template):
+        resp = client.post(f"/api/templates/{sandbox_template.id}/duplicate/")
+        assert resp.status_code == 201
+        assert resp.data["name"] == f"{sandbox_template.name} (Copy)"
+        assert resp.data["subject"] == sandbox_template.subject
+        assert resp.data["html_content"] == sandbox_template.html_content
+        assert resp.data["environment"] == "sandbox"
+
+    def test_duplicate_copies_placeholders(self, client, user):
+        tpl = EmailTemplate.objects.create(
+            name="Placeholder Template",
+            subject="Hi {{name}}",
+            html_content="<p>Hi {{name}}, your code is {{code}}.</p>",
+            user=user,
+            environment="sandbox",
+        )
+        resp = client.post(f"/api/templates/{tpl.id}/duplicate/")
+        assert resp.status_code == 201
+        placeholder_names = [p["name"] for p in resp.data["placeholders"]]
+        assert "name" in placeholder_names
+        assert "code" in placeholder_names
+
+    def test_duplicate_twice_generates_unique_names(self, client, sandbox_template):
+        resp1 = client.post(f"/api/templates/{sandbox_template.id}/duplicate/")
+        assert resp1.status_code == 201
+        assert resp1.data["name"] == f"{sandbox_template.name} (Copy)"
+
+        resp2 = client.post(f"/api/templates/{sandbox_template.id}/duplicate/")
+        assert resp2.status_code == 201
+        assert resp2.data["name"] == f"{sandbox_template.name} (Copy) 2"
+
+    def test_duplicate_stays_in_same_environment(self, admin_client, admin_user):
+        tpl = EmailTemplate.objects.create(
+            name="Prod Template",
+            subject="Subject",
+            html_content="<p>body</p>",
+            user=admin_user,
+            environment="sandbox",
+        )
+        resp = admin_client.post(f"/api/templates/{tpl.id}/duplicate/")
+        assert resp.status_code == 201
+        assert resp.data["environment"] == "sandbox"
+
+    def test_duplicate_requires_authentication(self, sandbox_template):
+        unauthenticated = APIClient()
+        resp = unauthenticated.post(f"/api/templates/{sandbox_template.id}/duplicate/")
+        assert resp.status_code == 401
+
+    def test_cannot_duplicate_other_orgs_template(self, other_user, sandbox_template):
+        from tests.conftest import env_client
+        other_client = env_client(other_user, "sandbox")
+        resp = other_client.post(f"/api/templates/{sandbox_template.id}/duplicate/")
+        assert resp.status_code == 404
+
+
+@pytest.mark.django_db
 class TestTemplatePreview:
     def test_preview_renders_placeholders(self, client, sandbox_template):
         resp = client.post(f"/api/templates/{sandbox_template.id}/preview/", {

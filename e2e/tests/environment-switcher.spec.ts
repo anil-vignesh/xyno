@@ -27,7 +27,7 @@ test.describe("Environment Switcher", () => {
   test("switching environment refetches templates page data", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/templates");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     // Intercept the templates API call after switching
     const [request] = await Promise.all([
@@ -40,7 +40,7 @@ test.describe("Environment Switcher", () => {
   test("switching environment refetches events page data", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/events");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     const [request] = await Promise.all([
       page.waitForRequest((req) => req.url().includes("/api/events/") && req.method() === "GET"),

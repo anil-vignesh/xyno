@@ -33,7 +33,7 @@ test.describe("Events", () => {
     });
 
     await page.goto("/events");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.locator('[title="Promote to Production"]').first()).toBeVisible();
   });
 
@@ -41,7 +41,7 @@ test.describe("Events", () => {
     await registerAndLogin(page);
     await page.goto("/events");
     await switchEnvironment(page, "production");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await expect(page.locator('[title="Promote to Production"]')).toHaveCount(0);
   });
 
@@ -54,7 +54,7 @@ test.describe("Events", () => {
     });
 
     await page.goto("/events");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await page.click('[title="View Trigger Code"]');
     await expect(page.locator("text=curl -X POST")).toBeVisible();
   });
