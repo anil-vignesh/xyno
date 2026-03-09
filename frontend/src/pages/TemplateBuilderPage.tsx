@@ -248,11 +248,16 @@ export default function TemplateBuilderPage() {
   }, [showBrandLibrary, brandCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Insert a brand component's HTML into the editor
-  const insertBrandComponent = async (componentId: number) => {
+  const insertBrandComponent = async (componentId: number, category?: string) => {
     try {
       const { data } = await brandComponentsApi.get(componentId);
       if (!editor) return;
-      editor.addComponents(data.html_content);
+      const wrapper = editor.getWrapper();
+      if (category === "header" && wrapper) {
+        wrapper.prepend(data.html_content);
+      } else {
+        editor.addComponents(data.html_content);
+      }
       toast.success(`"${data.name}" inserted`);
     } catch {
       toast.error("Failed to insert component");
@@ -538,7 +543,7 @@ export default function TemplateBuilderPage() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs shrink-0 ml-2"
-                          onClick={() => insertBrandComponent(comp.id)}
+                          onClick={() => insertBrandComponent(comp.id, comp.category)}
                         >
                           Insert
                         </Button>
